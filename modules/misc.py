@@ -1,4 +1,5 @@
 import time
+import discord
 from discord.ext import commands
 from datetime import datetime, timedelta
 from discord.commands import (  # Importing the decorator that makes slash commands.
@@ -49,11 +50,18 @@ class MiscCog(commands.Cog):
         await ctx.respond(embed=self.embed_service
             .generate(
                 title="Help",
-                description=htm_about + self.calc_uptime(),
+                description=hb_about + self.calc_uptime(),
                 footer='hambot 1.1.0 by N4OG\n'
                        '\tbased on HamTheMan by thisguyistotallyben'
             ), ephemeral=True
         )
+
+    @slash_command(name="study", description="hambot about")
+    async def study(self, ctx):
+        embed=discord.Embed(title="Study using the Ham.Study app or Website",description=study_text, colour=0x31a896, timestamp=datetime.now())
+        embed.set_image(url='https://blog.hamstudy.org/wp-content/uploads/2013/10/hamstudy_blue.png')
+        await ctx.respond(embed=embed)
+
 
     def calc_uptime(self):
         up = str(timedelta(seconds=(time.time() - self.bot.start_time)))
@@ -112,7 +120,7 @@ help_message = ('**Core commands**\n'
                 '\t`/uptime`: Bot uptime\n')
 
 
-htm_about = ('**Author**\n'
+hb_about = ('**Author**\n'
              '\tAlek, N4OG\n'
              '\n**Tools**\n'
              '\tPython 3.10\n'
@@ -123,3 +131,36 @@ htm_about = ('**Author**\n'
              '\tOnline callsign lookups from HamQTH and callook.info\n'
              '\tMaximum Usable Frequency (MUF) data from prop.kc2g.com\n'
              '\n**Uptime**\n\t')
+
+study_text = ("A good way to study is with the ham.study application. You can install the "
+              "application on a phone or tablet, or you can use it on-line. So, if you don't want to "
+              "pay the $4 for the application, you can just access it through a browser from any "
+              "device, even if you're not connected to the Internet. If you access hamstudy with a "
+              "browser, it's always free, but you do need to Register with your email address for it "
+              "to keep track of your progress.\n"
+              'In either case, you should create an account by "Registering" on hamstudy.org. Do '
+              'not use Google or Facebook - register with an email address. This creates a free '
+              "account that keeps track of your progress.\n"
+              "Once you've Registered for your account, do this:\n"
+              "Login to ham.study using your username and password.\n"
+              "Choose the Technician (2018 - 2022) exam by clicking on Technician (2018 - 2022):\n"
+              "Click on Study Mode:\n"
+              "Use the drop-down option in the top bar to change from All Questions to just T1:\n"
+              "Click on T1.\n"
+              "Now go through each question in T1, until you've Seen 100% of the questions, and "
+              "your Aptitude is 85% or more.\n"
+              "Only then go to the next Sub element (T2).\n"
+              "Continue doing this with each sub element.\n"
+              "Do not skip sub elements.\n"
+              "Do not take practice exams until you've Seen 100% of each sub element and your "
+              "Aptitude is 85% or more in each sub element.\n"
+              "The bar graph on the right will display your Seen and Aptitude.\n"
+              "If you have any questions about how to use hamstudy, or questions about the "
+              "questions and answers, just reply to this email. There's an explanation of the answer "
+              "when you're in Study Mode. Just click on I don't know. The reason for I don't know "
+              "instead of guessing is the app is designed to give you questions more frequently if "
+              "you select I don't know instead of getting it wrong.\n\n"
+
+              "Once you are done studying for Technician you can do the same for General and "
+              "Extra when ready. You would just substitute the appropriate element you are "
+              "studying. All credit for this method goes to Norm K6YXH\n")
