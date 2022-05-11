@@ -56,7 +56,7 @@ class MiscCog(commands.Cog):
             ), ephemeral=True
         )
 
-    @slash_command(name="study", description="hambot about")
+    @slash_command(name="study", description="License Study Information")
     async def study(self, ctx):
         embed=discord.Embed(title="Study using the Ham.Study app or Website",description=study_text, colour=0x31a896, timestamp=datetime.now())
         embed.set_image(url='https://blog.hamstudy.org/wp-content/uploads/2013/10/hamstudy_blue.png')
