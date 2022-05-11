@@ -1,59 +1,54 @@
-# Author:  Benjamin Johnson (AB3NJ)
-# Purpose: It performs various ham radio-related tasks
-
-'''
-ONE SMALL LITTLE BIT OF SETUP: PLEASE READ
-
-Copy the file 'config_default.json' and name it 'config.json'.
-
-Then, fill out the information inside of it with the appropriate data.
-'''
-
 import time
 import json
+from turtle import done
 import discord
-from discord.ext import commands
+import logging
+from discord.ext import commands, tasks
+import random
+
+intents = discord.Intents(
+    guilds=True,
+    members=True,
+    messages=True,
+    reactions=True
+)
+
+bot = discord.Bot(
+    description="Hambot",
+    intents=intents,
+)
+
+#logging.basicConfig(level=logging.INFO)
 
 
-cogs = ['modules.state',
-        'modules.utils.embed',
-        'modules.loader',
-        'modules.lookup',
-        'modules.misc',
-        'modules.morse',
-        'modules.reactions']
+async def on_ready(self):
+    print(f'  Username: {self.user}')
+    print(f'  Servers:  {len(self.guilds)}')
+    print('-----\nReady...')
 
+    
 
-class HamTheManBot(commands.Bot):
-    async def on_ready(self):
-        await self.change_presence(
-            activity=discord.Game(name="on the radio | hb help"))
-        print(f'  Username: {self.user}')
-        print(f'  Servers:  {len(self.guilds)}')
-        print('-----\nReady...')
-
-
-# THIS IS WHERE THE MAGIC STARTS
-
-print('WELCOME TO HAM THE MAN\n-----')
+print('WELCOME TO HAMBOT\n-----\n')
 
 config = {}
 with open('config.json', 'r') as f:
     print('loading config...')
     config = json.load(f)
-    config['accent color'] = int(config['accent color'], 16)
+    config['embedcolor'] = int(config['embedcolor'], 16)
     print('  config loaded.')
 
-# this is a bit of a yikes, but it's an okay patch until I find out to actually do this
-bot = HamTheManBot(command_prefix=['hb ', 'HB ', 'hB ', 'Hb '], case_insensitive=True)
-
-# discord-y things
-bot.remove_command('help')
-bot.owner_id = config['owner id']
-
-# custom variables
+bot.owner_id = config['ownerId']
 bot.start_time = time.time()
 bot.config = config
+
+#Load modules
+cogs =  [
+            'modules.lookup',
+            'modules.dxcc',
+            'modules.utils.embed',
+            'modules.setstatus',
+            'modules.misc',
+        ]
 
 print('loading extensions...')
 for cog in cogs:
@@ -61,4 +56,12 @@ for cog in cogs:
 print('  done.')
 print('starting bot...')
 
-bot.run(config['discord key'])
+
+try:
+    bot.run(config['token'])
+except discord.LoginFailure as ex:
+    raise SystemExit("Error: Failed to authenticate: {}".format(ex))
+except discord.ConnectionClosed as ex:
+    raise SystemExit("Error: Discord gateway connection closed: [Code {}] {}".format(ex.code, ex.reason))
+except ConnectionResetError as ex:
+    raise SystemExit("ConnectionResetError: {}".format(ex))    

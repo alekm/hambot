@@ -16,7 +16,7 @@ from . import olerror, olresult
 __all__ = ['HamQTHLookup']
 
 # key file location
-key_file = '/config/hamqth_key.txt'
+key_file = 'hamqth_key.txt'
 
 
 # hamqth lookup class

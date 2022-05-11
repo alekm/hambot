@@ -1,8 +1,9 @@
-import discord
 import time
 from discord.ext import commands
 from datetime import datetime, timedelta
-
+from discord.commands import (  # Importing the decorator that makes slash commands.
+    slash_command,
+)
 
 '''
 TODO:
@@ -16,55 +17,42 @@ class MiscCog(commands.Cog):
         self.bot = bot
         self.embed_service = bot.get_cog('EmbedCog')
 
-    @commands.command()
+    @slash_command(name="utc", description="Replies with Universal Coordinated Time")
     async def utc(self, ctx):
         full_time = str(datetime.utcnow())
         full_time_split = full_time.strip().split()
         date = full_time_split[0]
         time = full_time_split[1][0:8]
 
-        await ctx.send(embed=self.embed_service
+        await ctx.respond(embed=self.embed_service
             .generate(
                 title='Universal Coordinated Time',
                 description=f'**Date:** {date}\n**Time:** {time}'
-            )
+            ), ephemeral=True
         )
 
-    @commands.command()
+    @slash_command(name="uptime", description="hambot uptime")
     async def uptime(self, ctx):
-        await ctx.send(f'I have been alive for {self.calc_uptime()}')
+        await ctx.respond(f'I have been alive for {self.calc_uptime()}')
 
-    @commands.command()
-    async def kerchunk(self, ctx):
-        await ctx.send('H...R...C...C...Repeater *kksshh*')
-
-    @commands.command()
-    async def standards(self, ctx):
-        await ctx.send('https://xkcd.com/927')
-
-    @commands.command()
-    async def whacker(self, ctx):      
-        with open('ares1.jpg', 'rb') as f:
-            await ctx.send(file=discord.File(f, 'ares1.jpg'))
-
-    @commands.command()
+    @slash_command(name="help", description="hambot help")
     async def help(self, ctx):
-        await ctx.send(embed=self.embed_service
+        await ctx.respond(embed=self.embed_service
             .generate(
                 title="Help",
                 description=help_message
-            )
+            ), ephemeral=True
         )
 
-    @commands.command()
+    @slash_command(name="about", description="hambot about")
     async def about(self, ctx):
-        await ctx.send(embed=self.embed_service
+        await ctx.respond(embed=self.embed_service
             .generate(
                 title="Help",
                 description=htm_about + self.calc_uptime(),
-                footer='hambot 1.0.0 by N4OG\n'
+                footer='hambot 1.1.0 by N4OG\n'
                        '\tbased on HamTheMan by thisguyistotallyben'
-            )
+            ), ephemeral=True
         )
 
     def calc_uptime(self):
@@ -112,25 +100,23 @@ STRINGS AND STUFF
 
 # help dialog
 help_message = ('**Core commands**\n'
-                '\t**cond:** Solar conditions (Source: hamqsl.com)\n'
-                '\t**muf:** MUF information (Source: prop.kc2g.com)\n'
-                '\t**utc:** Time in UTC\n'
-                '\t**call [callsign]:** Callsign information (Sources: HamQTH'
+                '\t`/cond`: Solar conditions (Source: hamqsl.com)\n'
+                '\t`/muf`: Maximum Usable Frequency information (Source: prop.kc2g.com)\n'
+                '\t`/fof2`: Frequency of F2 Layer (NVIS) information (Source: prop.kc2g.com)\n '
+                '\t`/drap`: D Region Absorption Prediction map\n'
+                '\t`/utc`: Time in UTC\n'
+                '\t`/call [callsign]`: Callsign information (Sources: HamQTH'
                 ', callook.info)\n'
-                '\t**morse [message]:** Translates a message into morse code '
-                '(use quotes)\n'
-                '\n\t**about:** About the bot\n'
-                '\t**uptime:** Bot uptime\n'
-                '\n\t**kerchunk:** Pretend hb is a repeater\n'
-                '\t**standards:** To remind us how standards proliferate\n')
+                '\t`/dx [prefix]`: DXCC information about a call prefix\n'
+                '\n\t`/about`: About the bot\n'
+                '\t`/uptime`: Bot uptime\n')
 
 
 htm_about = ('**Author**\n'
              '\tAlek, N4OG\n'
-             '\tBased on HamTheMan by Ben Johnson, AB3NJ\n'
              '\n**Tools**\n'
              '\tPython 3.10\n'
-             '\tDiscord API v1.3.3\n'
+             '\tPy-Cord 2.0.0-beta.7\n'
              '\tlibrsvg2\n'
              '\n**Data Sources**\n'
              '\tSolar conditions from hamqsl.com\n'

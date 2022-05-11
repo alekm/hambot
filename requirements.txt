@@ -1,2 +1,4 @@
-discord.py
+py-cord==2.0.0-beta.7
 requests
+ctyparser
+common

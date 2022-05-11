@@ -21,7 +21,7 @@ class EmbedCog(commands.Cog):
         return discord.Embed(
             title=title,
             description=description,
-            colour=self.bot.config['accent color']
+            colour=self.bot.config['embedcolor']
         ).set_footer(text=footer)
 
 

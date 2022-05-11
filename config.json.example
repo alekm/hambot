@@ -1,0 +1,11 @@
+{
+    "token": "BOT AUTH TOKEN",
+    "ownerId": YOUR DISCORD ID,
+    "guildId": GUILD ID,
+    "clientID": BOT ID,
+    "embedcolor": "0x31a896",
+    "hamqth": {
+        "username": "username",
+        "password": "password"
+    }
+}

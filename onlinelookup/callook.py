@@ -11,7 +11,6 @@ import os.path
 from urllib import request, error
 from . import olerror, olresult
 
-
 # importorator
 __all__ = ['CallookLookup']
 
