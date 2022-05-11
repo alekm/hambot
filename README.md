@@ -13,6 +13,5 @@ You can then copy config_default.json to config.json and edit the required param
 Build the docker container using the included Dockerfile (ex. "docker build -t hambot .")
 Once built, the container can be executed from docker or docker-compose
 
-By default, the bot answers to the keyword "hb" (ex. "hb help").
+By default, the bot answers to slash commands, which will be registered globaly automatically.
 
-Only Bot -> Send Messages is required for the bot to operate in a Discord Server
