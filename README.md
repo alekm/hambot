@@ -1,5 +1,5 @@
 # hambot
-hambot (hb) is a Discord bot based on thisguyistotallben/hamtheman for various amateur radio related lookups, including callsigns (globally with HamQTH), solar conditions, Maximum Usable Frequencies, time, and a morse code translator.
+hambot (hb) is a Discord bot based on thisguyistotallben/hamtheman for various amateur radio related lookups, including callsigns (globally with HamQTH), solar conditions, Maximum Usable Frequencies, D-Region Absorption Predictions (d-rap) and Frequency of F2 Layer (foF2)
 
 # Getting started
 This bot is designed to run in a docker container.
@@ -15,3 +15,9 @@ Once built, the container can be executed from docker or docker-compose
 
 By default, the bot answers to slash commands, which will be registered globaly automatically.
 
+## Usage
+
+Use the /help and /about commands once added to your server to see available options.
+
+
+Add me to your server! https://discordapp.com/oauth2/authorize?client_id=947361185878147082&scope=bot&permissions=67488832
