@@ -51,7 +51,7 @@ class MiscCog(commands.Cog):
             .generate(
                 title="Help",
                 description=hb_about + self.calc_uptime(),
-                footer='hambot 1.2 by N4OG\n'
+                footer='hambot 2.1 by N4OG\n'
                        '\tbased on HamTheMan by thisguyistotallyben'
             ), ephemeral=True
         )
