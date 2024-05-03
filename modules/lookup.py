@@ -37,7 +37,7 @@ class LookupCog(commands.Cog):
         if os.path.isfile("conditions.jpg"):
             os.remove("conditions.jpg")
         # download the latest conditions
-        r = requests.get('https://www.hamqsl.com/solar101pic.php')
+        r = requests.get('https://www.hamqsl.com/solar101vhf.php')
         open('conditions.jpg', 'wb').write(r.content)
         embed=discord.Embed(title=":sunny: Current Solar Conditions :sunny:",description='Images from https://hamqsl.com', colour=0x31a896, timestamp=datetime.now())
         embed.set_image(url='attachment://conditions.jpg')
