@@ -7,7 +7,7 @@ This bot is designed to run in a docker container.
 ## API Keys
 You will first need an API Key for your bot from discord (https://discordapp.com/developers/applications/) and a HamQTH aaccount (https://hamqth.com)
 
-You can then copy config_default.json to config.json and edit the required parameters with your API and account information.  Your discord user-id will be a number, not your username.  You can search on how to find this using discord developer mode.
+You can then copy config_default.json to /config/config.json and edit the required parameters with your API and account information.  Your discord user-id will be a number, not your username.  You can search on how to find this using discord developer mode.
 
 ## Running in docker
 Build the docker container using the included Dockerfile (ex. "docker build -t hambot .")
