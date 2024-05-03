@@ -31,7 +31,7 @@ async def on_ready(self):
 print('WELCOME TO HAMBOT\n-----\n')
 
 config = {}
-with open('config.json', 'r') as f:
+with open('/config/config.json', 'r') as f:
     print('loading config...')
     config = json.load(f)
     config['embedcolor'] = int(config['embedcolor'], 16)
