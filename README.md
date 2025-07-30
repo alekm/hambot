@@ -1,13 +1,12 @@
 # hambot
 
-hambot (hb) is a Discord bot for amateur radio lookups: callsigns (globally with HamQTH), solar conditions, Maximum Usable Frequencies, UTC/time, and a morse code translator. Adapted from thisguyistotallben/hamtheman.
+hambot (hb) is a Discord bot for amateur radio lookups: callsigns (globally with HamQTH), solar conditions, Maximum Usable Frequencies, UTC/time, and more. Adapted from thisguyistotallben/hamtheman.
 
 ## Features
 - Global callsign lookups (HamQTH)
 - Solar weather/maps
 - MUF charts
 - UTC/time tools
-- Morse code helper
 
 ## Getting Started
 
@@ -36,6 +35,7 @@ By default, hambot responds to slash commands (registered globally). It may take
 ## Example Slash Commands
 - `/call <callsign>`
 - `/dx <prefix>`
+- `/muf`
 - `/cond`
 - `/fof2`
 - `/utc`
