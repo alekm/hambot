@@ -261,7 +261,7 @@ class LookupCog(commands.Cog):
         rets = (
             "**About**\n" + about +
             "\n**Location**\n" + loc +
-            club + "**Links**\n" + links
+            club + "\n**Links**\n" + links
         )
         return rets
 
