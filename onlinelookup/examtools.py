@@ -1,68 +1,74 @@
-import json
-import os.path
-from urllib import request, error
-import olerror, olresult
+"""
+ExamTools US Callsign Lookup (async)
+Author: [YourNameHere]
 
+Uses exam.tools API to retrieve information on US callsigns.
+"""
 
-# importorator
-__all__ = ['ExamToolsLookup']
+import aiohttp
+from . import olerror, olresult
 
+__all__ = ['AsyncExamToolsLookup']
 
-class ExamToolsLookup:
-    def lookup(self, call):
+class AsyncExamToolsLookup:
+    """
+    Looks up US callsign info using the exam.tools API asynchronously.
+    """
+    async def lookup(self, call):
         """
-        Uses exam.tools to look up information on a US callsign
+        Async lookup for a US callsign using exam.tools.
 
         :param call: the callsign to look up
-        :returns: LookupResult class filled with information from HamQTH
-        :raises LookupResultError: if the lookup returns no information
+        :returns: LookupResult object populated with info from exam.tools
+        :raises LookupResultError: if there's no result or a network/parse issue
         """
-
-        # setup
         lr = olresult.LookupResult()
+        url = f'https://exam.tools/api/uls/individual/{call}'
 
-        # make request
-        req = (f'https://exam.tools/api/uls/individual/{call}')
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        raise olerror.LookupResultError(f'ExamTools: HTTP {resp.status}')
+                    data = await resp.json()
+        except Exception as ex:
+            raise olerror.LookupResultError(f'ExamTools network/parse error: {ex}')
 
-        with request.urlopen(req) as url:
-            data = json.loads(url.read().decode())
+        if data.get('type') == 'NotFound':
+            raise olerror.LookupResultError('ExamTools: callsign not found')
 
-        # check if callsign or not
-        if 'type' in data:
-            if data['type'] == 'NotFound':
-                raise olerror.LookupResultError('ExamTools')
-
-        # ## GET THE GOODS ## #
-
+        # Source marker
         lr.source = 'exam.tools'
 
-        # basic info
-        lr.callsign = data['callsign']
+        # Core info
+        lr.callsign = data.get('callsign', call.upper())
+        first_name = data.get('first_name', '')
+        middle_initial = data.get('middle_initial', '')
+        last_name = data.get('last_name', '')
 
-        first_name = data['first_name']
-        middle_initial = data['middle_initial']
-        last_name = data['first_name']
-        lr.name = f'{first_name} {middle_initial} {last_name}'
+        # Name formatting
+        name = first_name
+        if middle_initial:
+            name += f' {middle_initial}'
+        if last_name:
+            name += f' {last_name}'
+        lr.name = name.strip()
 
-        lr.opclass = data['license_class']
+        lr.opclass = data.get('license_class', '')
 
-        # location
+        # Location
         lr.country = 'United States'
+        lr.city = data.get('city', '')
+        lr.state = data.get('state', '')
+        lr.zip = data.get('zip', '')
 
-        lr.city = data['city']
-        lr.state = data['state']
-        lr.zip = data['zip']
+        # Club info—exam.tools currently doesn't support this
+        # lr.club = False
 
-        # club stuff (ASK ABOUT HOW THIS PART WORKS BECAUSE IT DOES NOT RIGHT NOW)
-        # if data['type'] == 'CLUB':
-        #     lr.club = True
-        #     lr.trusteename = data['trustee']['name']
-        #     lr.trusteecall = data['trustee']['callsign']
+        # Additional ULS info
+        lr.frn = data.get('frn', '')
 
-        # uls stuff
-        lr.frn = data['frn']
-
-        # raw data
+        # Store all raw data for future use
         lr.raw = data
 
         return lr

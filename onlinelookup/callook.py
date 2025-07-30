@@ -2,90 +2,96 @@
 Callook Callsign Lookup
 Author: Ben Johnson, AB3NJ
 
-Uses Callook's API to retreive information on callsigns
+Uses Callook's API to retrieve information on callsigns
+
+Refactored for async by N4OG - 2025
 """
 
-
-import json
-import os.path
-from urllib import request, error
+import aiohttp
 from . import olerror, olresult
 
-# importorator
-__all__ = ['CallookLookup']
+__all__ = ['AsyncCallookLookup']
 
-
-def prettify(name):
+def prettify(name: str) -> str:
     names = name.split()
     newname = ''
-
     for i in names:
-        if len(name) > 1:
+        if len(i) > 1:
             newname += i[0] + i[1:].lower()
         else:
             newname += i
         newname += ' '
+    return newname.strip()
 
-    return newname
-
-
-# hamqth lookup class
-class CallookLookup:
-    def lookup(self, call):
+class AsyncCallookLookup:
+    """
+    Provides US callsign lookup via callook.info API (async).
+    """
+    async def lookup(self, call: str):
         """
-        Uses callook.info to look up information on a US callsign
+        Async lookup of a US callsign using callook.info.
 
         :param call: the callsign to look up
-        :returns: LookupResult class filled with information from HamQTH
-        :raises LookupResultError: if the lookup returns no information
+        :returns: LookupResult object with Callook info
+        :raises LookupResultError: on errors or if not found
         """
-
-        # setup
         lr = olresult.LookupResult()
+        req = f'https://callook.info/{call}/json'
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(req) as resp:
+                    if resp.status != 200:
+                        raise olerror.LookupResultError(f'Callook: HTTP {resp.status}')
+                    data = await resp.json()
+        except Exception as ex:
+            raise olerror.LookupResultError(f'Callook network/parse error: {ex}')
 
-        # make request
-        req = (f'https://callook.info/{call}/json')
-
-        with request.urlopen(req) as url:
-            data = json.loads(url.read().decode())
-
-        # check if callsign or not
-        if data['status'] == 'INVALID':
-            raise olerror.LookupResultError('Callook')
-
-        # ## GET THE GOODS ## #
+        if data.get('status') == 'INVALID':
+            raise olerror.LookupResultError('Callook: invalid callsign')
 
         lr.source = 'Callook'
 
         # basic info
-        lr.callsign = data['current']['callsign']
-        lr.prevcall = data['previous']['callsign']
+        lr.callsign = data.get('current', {}).get('callsign', call.upper())
+        lr.prevcall = data.get('previous', {}).get('callsign', '')
 
-        lr.name = prettify(data['name'])
-
-        lr.opclass = prettify(data['current']['operClass'])
+        lr.name = prettify(data.get('name', ''))
+        lr.opclass = prettify(data.get('current', {}).get('operClass', ''))
 
         # location
         lr.country = 'United States'
-        lr.grid = data['location']['gridsquare']
+        lr.grid = data.get('location', {}).get('gridsquare', '')
 
-        addrs = data['address']['line2'].split(',')
-        addrs2 = addrs[1].split()
-        lr.city = prettify(addrs[0])
-        lr.state = addrs2[0]
-        lr.zip = addrs2[1]
+        # Defensive address parsing
+        address = data.get('address', {}).get('line2', '')
+        if ',' in address:
+            addrs = address.split(',')
+            lr.city = prettify(addrs[0])
+            addrs2 = addrs[1].strip().split()
+            if len(addrs2) >= 2:
+                lr.state = addrs2[0]
+                lr.zip = addrs2[1]
+            elif len(addrs2) == 1:
+                lr.state = addrs2[0]
+                lr.zip = ''
+            else:
+                lr.state = lr.zip = ''
+        else:
+            lr.city = prettify(address)
+            lr.state = lr.zip = ''
 
-        # club stuff
-        if data['type'] == 'CLUB':
-            lr.club = True
-            lr.trusteename = data['trustee']['name']
-            lr.trusteecall = data['trustee']['callsign']
+        # club info
+        lr.club = data.get('type', '') == 'CLUB'
+        if lr.club:
+            trustee = data.get('trustee', {})
+            lr.trusteename = trustee.get('name', '')
+            lr.trusteecall = trustee.get('callsign', '')
 
-        # uls stuff
-        lr.frn = data['otherInfo']['frn']
-        lr.uls = data['otherInfo']['ulsUrl']
+        # ULS/other info
+        other = data.get('otherInfo', {})
+        lr.frn = other.get('frn', '')
+        lr.uls = other.get('ulsUrl', '')
 
-        # raw data
         lr.raw = data
 
         return lr

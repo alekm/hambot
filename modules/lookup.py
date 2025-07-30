@@ -5,226 +5,276 @@ from datetime import datetime
 from pathlib import Path
 
 import discord
-import requests
-from ctyparser import BigCty
-from discord.commands import \
-    slash_command  # Importing the decorator that makes slash commands.
-from discord.ext import commands, tasks
+from discord.ext import commands
+from discord.commands import slash_command
+
+import aiohttp
+import aiofiles
+import asyncio
+
 from onlinelookup import callook, hamqth, olerror, olresult
 
-cty_path = Path("cty.json")
+import logging
+logger = logging.getLogger(__name__)
+
+# Path to the cty.json file, used for country lookups
+# This file should be in the same directory as this module or adjust the path accordingly
+# It contains the country codes and names used for callsign lookups.
+# If you don't have this file, you can download it from https://www.country-files.com
+CTY_PATH = Path("cty.json")
+
 
 class LookupCog(commands.Cog):
     def __init__(self, bot):
-        # reload any changes to the lookup classes
+        # Reload any lookup classes/cogs if hot-reloading
         importlib.reload(olresult)
         importlib.reload(olerror)
         importlib.reload(callook)
         importlib.reload(hamqth)
 
         self.bot = bot
-        self.embed = bot.get_cog('EmbedCog')
-        self.callook = callook.CallookLookup()
-        self.hamqth = hamqth.HamQTHLookup(
+        self.embed_service = bot.get_cog('EmbedCog')
+        self.callook = callook.AsyncCallookLookup()
+        self.hamqth = hamqth.AsyncHamQTHLookup(
             bot.config['hamqth']['username'],
-            bot.config['hamqth']['password'])
+            bot.config['hamqth']['password']
+        )
+        # If examtools is used add similar:
+        # self.examtools = examtools.AsyncExamToolsLookup(...)
 
+    async def cog_load(self):
+        # If HamQTH uses an async connect, call it here
+        await self.hamqth.connect()
 
-    @slash_command(name="cond", description="Replies with Current Solar Conditions")  
+    @slash_command(name="cond", description="Replies with Current Solar Conditions")
     async def cond(self, ctx):
         await ctx.trigger_typing()
-        # remove possibly conficting old file
-        if os.path.isfile("conditions.jpg"):
-            os.remove("conditions.jpg")
-        # download the latest conditions
-        r = requests.get('https://www.hamqsl.com/solar101vhf.php')
-        open('conditions.jpg', 'wb').write(r.content)
-        embed=discord.Embed(title=":sunny: Current Solar Conditions :sunny:",description='Images from https://hamqsl.com', colour=0x31a896, timestamp=datetime.now())
-        embed.set_image(url='attachment://conditions.jpg')
-        with open('conditions.jpg', 'rb') as f:
-            #await ctx.send(file=discord.File(f, 'conditions.gif'))
-            await ctx.respond(embed=embed, file=discord.File(f, 'conditions.jpg'))
-    
-    @slash_command(name="drap", description="D Region Absorption Predictions Map" )
+        fname = "conditions.jpg"
+        url = 'https://www.hamqsl.com/solar101pic.php'
+        try:
+            if os.path.isfile(fname):
+                os.remove(fname)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        await ctx.respond(f"Failed to fetch solar image: {resp.status}", ephemeral=True)
+                        return
+                    data = await resp.read()
+            async with aiofiles.open(fname, 'wb') as f:
+                await f.write(data)
+            embed = discord.Embed(
+                title=":sunny: Current Solar Conditions :sunny:",
+                description='Images from https://hamqsl.com',
+                colour=0x31a896,
+                timestamp=datetime.now()
+            )
+            embed.set_image(url=f'attachment://{fname}')
+            async with aiofiles.open(fname, 'rb') as f:
+                file = discord.File(f.name, fname)
+                await ctx.respond(embed=embed, file=file)
+        except Exception as ex:
+            await ctx.respond(f"Failed to fetch solar conditions: {ex}", ephemeral=True)
+
+    @slash_command(name="drap", description="D Region Absorption Predictions Map")
     async def drap(self, ctx):
         await ctx.trigger_typing()
-        # remove possibly conficting old file
-        if os.path.isfile("d-rap.png"):
-            os.remove("d-rap.png")
-        # download the latest conditions
-        r = requests.get('https://services.swpc.noaa.gov/images/animations/d-rap/global_f05/d-rap/latest.png')
-        open('d-rap.png', 'wb').write(r.content)
-        embed=discord.Embed(title=":globe_with_meridians: D Region Absorption Predictions Map :globe_with_meridians:",description='Images from https://www.swpc.noaa.gov/', colour=0x31a896, timestamp=datetime.now())
-        embed.set_image(url='attachment://d-rap.png')
-        with open('d-rap.png', 'rb') as f:
-            await ctx.respond(embed=embed, file=discord.File(f, 'd-rap.png'))    
+        fname = "d-rap.png"
+        url = 'https://services.swpc.noaa.gov/images/animations/d-rap/global_f05/d-rap/latest.png'
+        try:
+            if os.path.isfile(fname):
+                os.remove(fname)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        await ctx.respond(f"Failed to fetch DRAP map: {resp.status}", ephemeral=True)
+                        return
+                    data = await resp.read()
+            async with aiofiles.open(fname, 'wb') as f:
+                await f.write(data)
+            embed = discord.Embed(
+                title=":globe_with_meridians: D Region Absorption Predictions Map :globe_with_meridians:",
+                description='Images from https://www.swpc.noaa.gov/',
+                colour=0x31a896,
+                timestamp=datetime.now()
+            )
+            embed.set_image(url=f'attachment://{fname}')
+            async with aiofiles.open(fname, 'rb') as f:
+                file = discord.File(f.name, fname)
+                await ctx.respond(embed=embed, file=file)
+        except Exception as ex:
+            await ctx.respond(f"Failed to fetch DRAP map: {ex}", ephemeral=True)
 
-    @slash_command(name="fof2", description="Frequency of F2 Layer Map" )
+    @slash_command(name="fof2", description="Frequency of F2 Layer Map")
     async def fof2(self, ctx):
         await ctx.trigger_typing()
-        fileName="fof2.jpg"
-        svgName="fof2.svg"
-        url="https://prop.kc2g.com/renders/current/fof2-normal-now.svg"
-        embed=discord.Embed(title="Frequency of F2 Layer Map", colour=0x31a896, timestamp=datetime.now())
-        embed.set_image(url=f'attachment://{fileName}')
-        #if the muf image already exists and is less than 15 minutes old, send it
-        if os.path.isfile(fileName) and int(time.time()-os.path.getmtime(fileName))/60<15:
-            with open(fileName, 'rb') as f:
-                await ctx.respond(embed=embed, file=discord.File(f, fileName))
-        #if the muf image does not exist or the image is older than 15 minutes, cleanup files and grab a new one
-        elif not os.path.isfile(fileName) or int(time.time()-os.path.getmtime(fileName))/60>=15:
-            if os.path.isfile(fileName):
-                os.remove(fileName)
-            if os.path.isfile(svgName):
-                os.remove(svgName)
-            #download the latest muf map
-            r = requests.get(url)
-            open(svgName, 'wb').write(r.content)
-            #convert svg to jpg
-            convert_svg = os.system(f"rsvg-convert {svgName} > {fileName}")
-            #cleanup svg because we don't need it hanging around once we have a jpg
-            if os.path.isfile(svgName):
-                os.remove(svgName)
-            with open(fileName, 'rb') as f:
-                await ctx.respond(embed=embed, file=discord.File(f, fileName))       
+        jpg_name = "fof2.jpg"
+        svg_name = "fof2.svg"
+        url = "https://prop.kc2g.com/renders/current/fof2-normal-now.svg"
+        try:
+            should_download = (
+                not os.path.isfile(jpg_name)
+                or (time.time() - os.path.getmtime(jpg_name)) / 60 >= 15
+            )
+            if should_download:
+                for f in (jpg_name, svg_name):
+                    if os.path.isfile(f):
+                        os.remove(f)
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as resp:
+                        if resp.status != 200:
+                            await ctx.respond(f"Failed to fetch FOF2 SVG: {resp.status}", ephemeral=True)
+                            return
+                        data = await resp.read()
+                async with aiofiles.open(svg_name, 'wb') as f:
+                    await f.write(data)
+                proc = await asyncio.create_subprocess_shell(
+                    f"rsvg-convert {svg_name} -o {jpg_name}",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                stdout, stderr = await proc.communicate()
+                if proc.returncode != 0:
+                    await ctx.respond(f"SVG-to-JPG conversion failed: {stderr.decode()}", ephemeral=True)
+                    return
+                if os.path.isfile(svg_name):
+                    os.remove(svg_name)
+            embed = discord.Embed(
+                title="Frequency of F2 Layer Map",
+                colour=0x31a896,
+                timestamp=datetime.now()
+            )
+            embed.set_image(url=f'attachment://{jpg_name}')
+            async with aiofiles.open(jpg_name, 'rb') as f:
+                file = discord.File(f.name, jpg_name)
+                await ctx.respond(embed=embed, file=file)
+        except Exception as ex:
+            await ctx.respond(f"Failed to fetch FOF2 map: {ex}", ephemeral=True)
 
     @slash_command(name="muf", description="Maximum Usable Frequency Map")
     async def muf(self, ctx):
         await ctx.trigger_typing()
-        fileName="muf.jpg"
-        svgName="muf.svg"
-        url="https://prop.kc2g.com/renders/current/mufd-normal-now.svg"
-        embed=discord.Embed(title="Maximum Usable Frequency Map", colour=0x31a896, timestamp=datetime.now())
-        embed.set_image(url=f'attachment://{fileName}')
-        #if the muf image already exists and is less than 15 minutes old, send it
-        if os.path.isfile(fileName) and int(time.time()-os.path.getmtime(fileName))/60<15:
-            with open(fileName, 'rb') as f:
-                await ctx.respond(embed=embed, file=discord.File(f, fileName))
-        #if the muf image does not exist or the image is older than 15 minutes, cleanup files and grab a new one
-        elif not os.path.isfile(fileName) or int(time.time()-os.path.getmtime(fileName))/60>=15:
-            if os.path.isfile(fileName):
-                os.remove(fileName)
-            if os.path.isfile(svgName):
-                os.remove(svgName)
-            #download the latest muf map
-            r = requests.get(url)
-            open(svgName, 'wb').write(r.content)
-            #convert svg to jpg
-            convert_svg = os.system(f"rsvg-convert {svgName} > {fileName}")
-            #cleanup svg because we don't need it hanging around once we have a jpg
-            if os.path.isfile(svgName):
-                os.remove(svgName)
-            with open(fileName, 'rb') as f:
-                await ctx.respond(embed=embed, file=discord.File(f, fileName))
+        jpg_name = "muf.jpg"
+        svg_name = "muf.svg"
+        url = "https://prop.kc2g.com/renders/current/mufd-normal-now.svg"
+        try:
+            should_download = (
+                not os.path.isfile(jpg_name)
+                or (time.time() - os.path.getmtime(jpg_name)) / 60 >= 15
+            )
+            if should_download:
+                for f in (jpg_name, svg_name):
+                    if os.path.isfile(f):
+                        os.remove(f)
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url) as resp:
+                        if resp.status != 200:
+                            await ctx.respond(f"Failed to fetch MUF SVG: {resp.status}", ephemeral=True)
+                            return
+                        data = await resp.read()
+                async with aiofiles.open(svg_name, 'wb') as f:
+                    await f.write(data)
+                proc = await asyncio.create_subprocess_shell(
+                    f"rsvg-convert {svg_name} -o {jpg_name}",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                stdout, stderr = await proc.communicate()
+                if proc.returncode != 0:
+                    await ctx.respond(f"SVG-to-JPG conversion failed: {stderr.decode()}", ephemeral=True)
+                    return
+                if os.path.isfile(svg_name):
+                    os.remove(svg_name)
+            embed = discord.Embed(
+                title="Maximum Usable Frequency Map",
+                colour=0x31a896,
+                timestamp=datetime.now()
+            )
+            embed.set_image(url=f'attachment://{jpg_name}')
+            async with aiofiles.open(jpg_name, 'rb') as f:
+                file = discord.File(f.name, jpg_name)
+                await ctx.respond(embed=embed, file=file)
+        except Exception as ex:
+            await ctx.respond(f"Failed to fetch MUF map: {ex}", ephemeral=True)
 
     @slash_command(name="call", description="Display information about a callsign")
     async def call(self, ctx, callsign: str):
         await ctx.trigger_typing()
-
-        result = self.lookup(callsign)
-        result_embed_desc = ''
-        if result == None:
-            await ctx.respond('oof no callsign found', ephemeral=True)
+        logger.info(
+            f"/call used by {ctx.author} (ID: {ctx.author.id}) "
+            f"for {callsign} in "
+            f"{getattr(ctx.guild, 'name', 'DM')}#{getattr(ctx.channel, 'name', str(ctx.channel.id))}"
+        )
+        result = await self.lookup(callsign)
+        if result is None:
+            await ctx.respond("No callsign information found.", ephemeral=True)
             return
-        elif result.source == 'Callook':
-            result_embed_desc += self.format_for_callook(result)
-        elif result.source == 'HamQTH':
-            result_embed_desc += self.format_for_hamqth(result)
-        embed=discord.Embed(title=result.callsign,description=result_embed_desc, colour=0x31a896, timestamp=datetime.now())
-        embed.set_footer(text=f'Source: {result.source}')
+        embed_desc = (
+            self.format_for_callook(result) if result.source == "Callook"
+            else self.format_for_hamqth(result)
+            if result.source == "HamQTH" else "No data available."
+        )
+        embed = discord.Embed(
+            title=result.callsign,
+            description=embed_desc,
+            colour=0x31a896,
+            timestamp=datetime.now()
+        )
+        embed.set_footer(text=f"Source: {result.source}")
         await ctx.respond(embed=embed, ephemeral=True)
 
-    def lookup(self, callsign):
-        '''
-        Try US callsigns first
-        If that fails, try for all calls
-        '''
+
+    async def lookup(self, callsign):
+        """
+        Try US (Callook) lookup first (async). Fall back to HamQTH (async), else None.
+        """
         try:
-            result = self.callook.lookup(callsign)
+            result = await self.callook.lookup(callsign)
         except olerror.LookupResultError:
             try:
-                result = self.hamqth.lookup(callsign)
-            except:
+                result = await self.hamqth.lookup(callsign)
+            except Exception:
                 return None
-
         return result
 
-    ''' lookup formatting '''
-
     def format_for_callook(self, r, hqr=None):
-        rets = ''
-
-        # extra info if neccessary
-        if hqr is not None:
-            itu = hqr.itu
-            cq = hqr.cq
-
-        # about field
-        about = ''
-        about += f'\t**Name:** {r.name}\n'
+        about = f"\t**Name:** {r.name}\n"
         if not r.club:
-            about += f'\t**Class:** {r.opclass}\n'
-        if r.prevcall != '':
-            about += f'\t**Previous Callsign:** {r.prevcall}\n'
-
-        # location field
-        loc = ''
-        loc += f'\t**Country:** {r.country}\n'
-        loc += f'\t**Grid Square:** {r.grid}\n'
-        loc += f'\t**State:** {r.state}\n'
-        loc += f'\t**City:** {r.city}\n'
-
-        # club field
-        club = ''
-        if r.club:
-            club = '**Club Info**\n'
-            club += f'\t**Trustee:** {r.trusteename} ({r.trusteecall})\n\n'
-
-        # links
-        links = ''
-        links += f'\t**QRZ:** https://qrz.com/db/{r.callsign}\n'
-        links += f'\t**ULS:** {r.uls}\n'
-
-        # build magical string
-        rets = ('**About**\n'
-                f'{about}'
-                '\n**Location**\n'
-                f'{loc}'
-                '\n'
-                f'{club}'
-                '**Links**\n'
-                f'{links}')
-
+            about += f"\t**Class:** {r.opclass}\n"
+        if getattr(r, "prevcall", ""):
+            about += f"\t**Previous Callsign:** {r.prevcall}\n"
+        loc = (
+            f"\t**Country:** {r.country}\n"
+            f"\t**Grid Square:** {r.grid}\n"
+            f"\t**State:** {r.state}\n"
+            f"\t**City:** {r.city}\n"
+        )
+        club = ""
+        if getattr(r, "club", False):
+            club = (
+                "\n**Club Info**\n"
+                f"\t**Trustee:** {getattr(r, 'trusteename', '')} ({getattr(r, 'trusteecall', '')})\n"
+            )
+        links = (
+            f"\t**QRZ:** https://qrz.com/db/{r.callsign}\n"
+            f"\t**ULS:** {getattr(r, 'uls', '')}\n"
+        )
+        rets = (
+            "**About**\n" + about +
+            "\n**Location**\n" + loc +
+            club + "**Links**\n" + links
+        )
         return rets
-
-        em = discord.Embed(title=r.callsign, url=f'https://qrz.com/db/{r.callsign}', description=rets, colour=0x00c0ff)
-        em = em.set_footer(text='Source: callook.info')
-
-        # return
-        return em
 
     def format_for_hamqth(self, r):
-        rets = ''
-
-        # about field
-        if r.name != '':
-            rets = r.name
-        elif 'nick' in r.raw:
-            rets = r.raw['nick']
-        else:
-            rets = 'no name given'
-
-        rets = f'**About**\n\t**Name:** {rets}\n\n'
-
-        # location
-        rets += f'**Location**\n\t**Country:** {r.country}\n'
-        rets += f'\t**Grid Square:** {r.grid}\n'
-        rets += f'\t**City:** {r.city}\n\n'
-
-        # links
-        rets += f'**Links**\n\t**QRZ:** https://qrz.com/db/{r.callsign}\n'
-
-        return rets
+        about = r.name if getattr(r, "name", "") else r.raw.get("nick", "no name given")
+        about = f"**About**\n\t**Name:** {about}\n\n"
+        loc = (
+            f"**Location**\n\t**Country:** {getattr(r, 'country', '')}\n"
+            f"\t**Grid Square:** {getattr(r, 'grid', '')}\n"
+            f"\t**City:** {getattr(r, 'city', '')}\n\n"
+        )
+        links = f"**Links**\n\t**QRZ:** https://qrz.com/db/{getattr(r, 'callsign', '')}\n"
+        return about + loc + links
 
 def setup(bot):
     bot.add_cog(LookupCog(bot))

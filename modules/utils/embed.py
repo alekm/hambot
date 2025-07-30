@@ -1,29 +1,34 @@
 import discord
 from discord.ext import commands
 
-
 class EmbedCog(commands.Cog):
+    """
+    Cog providing a reusable embed generator for consistent embed formatting across hambot.
+    """
+
     def __init__(self, bot):
         self.bot = bot
 
-    def generate(self, **kwargs):
-        title = ''
-        description = ''
-        footer = ''
+    def generate(self, title='', description='', footer=''):
+        """
+        Generate a Discord Embed with consistent coloring and optional footer.
+        Accepts title, description, and footer as keyword arguments.
 
-        if 'title' in kwargs:
-            title = kwargs['title']
-        if 'description' in kwargs:
-            description = kwargs['description']
-        if 'footer' in kwargs:
-            footer = kwargs['footer']
-
-        return discord.Embed(
+        Example usage:
+            embed = self.embed_service.generate(
+                title="Some Title",
+                description="Some body text",
+                footer="Footer info"
+            )
+        """
+        embed = discord.Embed(
             title=title,
             description=description,
-            colour=self.bot.config['embedcolor']
-        ).set_footer(text=footer)
-
+            colour=self.bot.config.get('embedcolor', discord.Color.blue())
+        )
+        if footer:
+            embed.set_footer(text=footer)
+        return embed
 
 def setup(bot):
     bot.add_cog(EmbedCog(bot))

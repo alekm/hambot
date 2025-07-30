@@ -1,67 +1,104 @@
+import os
 import time
 import json
-from turtle import done
-import discord
 import logging
-from discord.ext import commands, tasks
-import random
+from discord.ext import commands
+import discord
 
+# =======================
+# Logging Setup
+# =======================
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("hambot")
+
+# =======================
+# Discord Intents
+# =======================
 intents = discord.Intents(
     guilds=True,
     members=True,
     messages=True,
-    reactions=True
+    reactions=True,
+    message_content=True  # Set true if your bot reads messages' content
 )
 
-bot = discord.Bot(
+# =======================
+# Bot Setup
+# =======================
+bot = commands.Bot(
     description="Hambot",
+    command_prefix="/",  # Or consider using "/" or configurable
     intents=intents,
 )
 
-#logging.basicConfig(level=logging.INFO)
+# =======================
+# Event: on_ready
+# =======================
+@bot.event
+async def on_ready():
+    logger.info(f'Username: {bot.user}')
+    logger.info(f'Servers: {len(bot.guilds)}')
+    logger.info('Ready...')
+    logger.info('WELCOME TO HAMBOT\n-----\n')
 
 
-async def on_ready(self):
-    print(f'  Username: {self.user}')
-    print(f'  Servers:  {len(self.guilds)}')
-    print('-----\nReady...')
+# =======================
+# Load Configuration
+# =======================
+CONFIG_PATH = os.getenv("HAMBOT_CONFIG", "./config/config.json")
+try:
+    with open(CONFIG_PATH, 'r') as f:
+        logger.info('Loading config...')
+        config = json.load(f)
+        config['embedcolor'] = int(config['embedcolor'], 16)
+        logger.info('Config loaded.')
+except FileNotFoundError:
+    logger.error(f"Config file not found at {CONFIG_PATH}")
+    raise SystemExit(1)
+except Exception as ex:
+    logger.error(f"Failed to load config: {ex}")
+    raise SystemExit(1)
 
-    
-
-print('WELCOME TO HAMBOT\n-----\n')
-
-config = {}
-with open('/config/config.json', 'r') as f:
-    print('loading config...')
-    config = json.load(f)
-    config['embedcolor'] = int(config['embedcolor'], 16)
-    print('  config loaded.')
-
+# Apply config properties to bot
 bot.owner_id = config['ownerId']
 bot.start_time = time.time()
 bot.config = config
 
-#Load modules
-cogs =  [
-            'modules.lookup',
-            'modules.dxcc',
-            'modules.utils.embed',
-            'modules.setstatus',
-            'modules.misc',
-        ]
+# =======================
+# Extension (Cog) Loading
+# =======================
+cogs = [
+    'modules.lookup',
+    'modules.dxcc',
+    'modules.utils.embed',
+    'modules.setstatus',
+    'modules.misc',
+]
 
-print('loading extensions...')
+logger.info('Loading extensions...')
 for cog in cogs:
-    bot.load_extension(cog)
-print('  done.')
-print('starting bot...')
+    try:
+        bot.load_extension(cog)
+        logger.info(f'Loaded {cog}')
+    except Exception as e:
+        logger.error(f'Failed to load {cog}: {e}')
+logger.info('All extensions attempted.')
 
-
+# =======================
+# Run Bot
+# =======================
+logger.info('Starting bot...')
 try:
     bot.run(config['token'])
 except discord.LoginFailure as ex:
-    raise SystemExit("Error: Failed to authenticate: {}".format(ex))
+    logger.critical(f"Failed to authenticate: {ex}")
+    raise SystemExit("Error: Failed to authenticate with Discord")
 except discord.ConnectionClosed as ex:
-    raise SystemExit("Error: Discord gateway connection closed: [Code {}] {}".format(ex.code, ex.reason))
+    logger.critical(f"Discord gateway connection closed: [Code {ex.code}] {ex.reason}")
+    raise SystemExit(f"Error: Discord gateway connection closed: [Code {ex.code}] {ex.reason}")
 except ConnectionResetError as ex:
-    raise SystemExit("ConnectionResetError: {}".format(ex))    
+    logger.critical(f"ConnectionResetError: {ex}")
+    raise SystemExit(f"ConnectionResetError: {ex}")
+except Exception as ex:
+    logger.critical(f"Unexpected error: {ex}")
+    raise SystemExit(f"Critical unexpected error: {ex}")

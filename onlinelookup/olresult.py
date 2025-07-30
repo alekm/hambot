@@ -1,36 +1,40 @@
-# return class
 class LookupResult:
+    """
+    Container for online callsign lookup data.
+    All fields default to empty string, False, or empty dict as appropriate.
+    """
+
     def __init__(self):
-        # basic info
-        self.callsign = ''
-        self.prevcall = ''
-        self.opclass = ''
-        self.name = ''
+        # Basic info
+        self.callsign: str = ''
+        self.prevcall: str = ''
+        self.opclass: str = ''
+        self.name: str = ''
 
-        # location
-        self.country = ''
-        self.grid = ''
-        self.itu = ''
-        self.cq = ''
-        self.zip = ''
-        self.state = ''
-        self.city = ''
+        # Location information
+        self.country: str = ''
+        self.grid: str = ''
+        self.itu: str = ''
+        self.cq: str = ''
+        self.zip: str = ''
+        self.state: str = ''
+        self.city: str = ''
 
-        # club stuff
-        self.club = False
-        self.trusteename = ''
-        self.trusteecall = ''
+        # Club info
+        self.club: bool = False
+        self.trusteename: str = ''
+        self.trusteecall: str = ''
 
-        # other info
-        self.street1 = ''
-        self.street2 = ''
+        # Other address info
+        self.street1: str = ''
+        self.street2: str = ''
 
-        # ULS stuff
-        self.frn = ''
-        self.uls = ''
+        # ULS/FCC/etc.
+        self.frn: str = ''
+        self.uls: str = ''
 
-        # raw data
-        self.raw = {}
+        # Parsed raw data from API
+        self.raw: dict = {}
 
-        # source
-        self.source = ''
+        # Source indicator (e.g., "HamQTH", "Callook", etc.)
+        self.source: str = ''

@@ -1,2 +1,3 @@
-import sys
-sys.path.append('..')
+# modules/__init__.py
+
+# (This file is intentionally left blank.)

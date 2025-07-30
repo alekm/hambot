@@ -2,3 +2,5 @@ py-cord==2.0.0-beta.7
 requests
 ctyparser
 common
+aiohttp>=3.8
+aiofiles

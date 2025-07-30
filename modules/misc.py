@@ -1,179 +1,149 @@
-import time
-import discord
-from discord.ext import commands
 from datetime import datetime, timedelta
-from discord.commands import (  # Importing the decorator that makes slash commands.
-    slash_command,
-)
-
-'''
-TODO:
-- Oof counter
-  - Make this server specific
-'''
-
+from discord.ext import commands
+from discord.commands import slash_command
+import time
 
 class MiscCog(commands.Cog):
+    """Miscellaneous commands for hambot."""
+
     def __init__(self, bot):
         self.bot = bot
-        self.embed_service = bot.get_cog('EmbedCog')
+        # Will retrieve on-demand to avoid import loops, helpful if hot-reloading cogs
+        self.embed_service = None
 
-    @slash_command(name="utc", description="Replies with Universal Coordinated Time")
+    async def cog_load(self):
+        # Called when the cog is loaded/reloaded
+        self.embed_service = self.bot.get_cog('EmbedCog')
+        if not self.embed_service:
+            print("Warning: EmbedCog not found. Embeds may not render correctly.")
+
+    @slash_command(
+        name="utc",
+        description="Replies with Universal Coordinated Time."
+    )
     async def utc(self, ctx):
-        full_time = str(datetime.utcnow())
-        full_time_split = full_time.strip().split()
-        date = full_time_split[0]
-        time = full_time_split[1][0:8]
+        """Returns current UTC date and time."""
+        now = datetime.utcnow()
+        date_str = now.strftime('%Y-%m-%d')
+        time_str = now.strftime('%H:%M:%S')
+        desc = f'**Date:** {date_str}\n**Time:** {time_str} UTC'
+        embed = self._embed("Universal Coordinated Time", desc)
+        await ctx.respond(embed=embed, ephemeral=True)
 
-        await ctx.respond(embed=self.embed_service
-            .generate(
-                title='Universal Coordinated Time',
-                description=f'**Date:** {date}\n**Time:** {time}'
-            ), ephemeral=True
-        )
-
-    @slash_command(name="uptime", description="hambot uptime")
+    @slash_command(
+        name="uptime",
+        description="Show how long the bot has been running."
+    )
     async def uptime(self, ctx):
-        await ctx.respond(f'I have been alive for {self.calc_uptime()}')
+        """Shows bot uptime."""
+        up_seconds = int(time.time() - self.bot.start_time)
+        uptime_str = self._format_uptime(up_seconds)
+        embed = self._embed("Uptime", f"Online for: `{uptime_str}`")
+        await ctx.respond(embed=embed, ephemeral=True)
 
-    @slash_command(name="help", description="hambot help")
+    @slash_command(
+            name="help", 
+            description="hambot help"
+    )
     async def help(self, ctx):
+        """Shows help message and command list."""
         await ctx.respond(embed=self.embed_service
             .generate(
                 title="Help",
-                description=help_message
+                description=(
+                    '**Core commands**\n'
+                    '\t`/cond`: Solar conditions (Source: hamqsl.com)\n'
+                    '\t`/muf`: Maximum Usable Frequency information (Source: prop.kc2g.com)\n'
+                    '\t`/fof2`: Frequency of F2 Layer (NVIS) information (Source: prop.kc2g.com)\n '
+                    '\t`/drap`: D Region Absorption Prediction map\n'
+                    '\t`/utc`: Time in UTC\n'
+                    '\t`/call [callsign]`: Callsign information (Sources: HamQTH'
+                    ', callook.info)\n'
+                    '\t`/dx [prefix]`: DXCC information about a call prefix\n'
+                    '\t`/study`: Studying for your ham license test\n'
+                    '\t`/testing`: How to take your ham license test\n'
+                    '\t`/hamlive`: Information on using Ham.Live for the HRCC HF Net\n'
+                    '\n\t`/about`: About the bot\n'
+                    '\t`/uptime`: Bot uptime\n'    
+                )
             ), ephemeral=True
         )
 
-    @slash_command(name="about", description="hambot about")
+    @slash_command(
+        name="about",
+        description="Show info about hambot."
+    )
     async def about(self, ctx):
-        await ctx.respond(embed=self.embed_service
-            .generate(
-                title="Help",
-                description=hb_about + self.calc_uptime(),
-                footer='hambot 2.1 by N4OG\n'
-                       '\tbased on HamTheMan by thisguyistotallyben'
-            ), ephemeral=True
+        """Returns info about the bot."""
+        embed = self._embed(
+            title="About Hambot",
+            description=(
+                f"I'm Hambot, a helper for ham radio operators on Discord.\n\n"                
+
+                f'\tAdd me to your server! https://discordapp.com/oauth2/authorize?client_id=947361185878147082&scope=bot&permissions=67488832\n\n'
+
+                f"Owner: <@{self.bot.owner_id}>\n"
+                f"[Source Code](https://github.com/alekm/hambot)\n"
+                f"73!"
+            )
         )
+        await ctx.respond(embed=embed, ephemeral=True)
 
-    @slash_command(name="study", description="License Study Information")
+    @slash_command(
+        name="study",
+        description="Resources for ham radio study."
+    )
     async def study(self, ctx):
-        embed=discord.Embed(title="Study using the Ham.Study app or Website",description=study_text, colour=0x31a896, timestamp=datetime.now())
-        embed.set_image(url='https://blog.hamstudy.org/wp-content/uploads/2013/10/hamstudy_blue.png')
-        await ctx.respond(embed=embed)
+        """Lists ham radio study resources."""
+        embed = self._embed(
+            title="Study Resources",
+            description=(
+                "Ham Radio Crash Course Technician License Prep (2022-2026): https://www.youtube.com/watch?v=DdzQS10JnHU&list=PL1KAjn5rGhixvvb_jMZFWmbP97-t9Kyxk&index=1 \n\n"
+                "A good way to study is with the https://ham.study application. You can install the application on a phone or tablet, or you can use it on-line. So, if you don't want to pay the $4 for the application, you can just access it through a browser from any device, even if you're not connected to the Internet. If you access hamstudy with a browser, it's always free, but you do need to Register with your email address for it to keep track of your progress.\n\n"
+                'In either case, you should create an account by "Registering" on hamstudy.org. Do not use Google or Facebook - register with an email address. This creates a free account that keeps track of your progress.\n\n '
+                "Once you've Registered for your account:\n\n"
+                "   • Login to ham.study using your username and password.\n"
+                "   • Choose the Technician exam by clicking on Technician (Starting Jul 1, 2022):\n"
+                "   • Click on Study Mode:\n"
+                "   • Use the drop-down option in the top bar to change from All Questions to just T1\n"
+                "   • Click on T1.\n"
+                "   • Go through each question in T1, until you've Seen 100% of the questions.\n"
+                "   • Go to the next Sub element (T2) when your aptitude is at 85% or more.\n"
+                "   • Continue doing this with each sub element.\n"
+                "   • Do not skip sub elements.\n"
+                "   • Do not take practice exams until you've Seen 100% of each sub element and your Aptitude is 85% or more in each sub element.\n"
+                "   • The bar graph on the right will display your Seen and Aptitude.\n\n"
+                "There's an explanation of the answer when you're in Study Mode. Just click on I don't know. The reason for I don't know instead of guessing is the app is designed to give you questions more frequently if you select I don't know instead of getting it wrong.\n\n"
+                "Once you are done studying for Technician, you can do the same for General and Extra. Substitute the appropriate element you are studying. All credit for this method goes to Norm, K6YXH."
+            )
+        )
+        await ctx.respond(embed=embed, ephemeral=True)
 
-    @slash_command(name="testing", description="License Testing Information")
+    @slash_command(
+        name="testing",
+        description="Information about ham radio examinations."
+    )
     async def testing(self, ctx):
-        await ctx.respond(embed=self.embed_service
-                .generate(
-                    title="Taking your ham license test with HRCC",
-                    description=hb_testing
-                    ), ephemeral=False
-                )
-    @slash_command(name="hamlive", description="Ham.Live Net Information")
-    async def hamlive(self,ctx):
-            await ctx.respond(embed=self.embed_service
-                .generate(
-                    title="Ham.Live",
-                    description=hamlive_text
-                    ), ephemeral=True
-                )
+        """Provides info about amateur radio testing options."""
+        embed = self._embed(
+            title="Testing Information",
+            description=(
+                "For more information about getting your ham license with the HRCC VE team, check this link: "
+                "\n\nhttps://hrcc.wiki/en/home/VETesting"
+            )
+        )
+        await ctx.respond(embed=embed, ephemeral=True)
 
-    def calc_uptime(self):
-        up = str(timedelta(seconds=(time.time() - self.bot.start_time)))
-
-        # parse it pretty-like
-        upsplit = up.split(',', 1)
-        if len(upsplit) == 1:
-            days = '0'
-        else:
-            days = upsplit[0].split()[0]
-            upsplit[0] = upsplit[1]
-
-        upsplit = upsplit[0].split(':')
-        if len(upsplit) != 3:
-            return ''
-
-        hours = upsplit[0]
-        minutes = upsplit[1]
-        if minutes[0] == '0':
-            minutes = minutes[1]
-        seconds = upsplit[2].split('.', 1)[0]
-        if seconds[0] == '0':
-            seconds = seconds[1]
-
-        # horribly complicated, but appeases my awful need for proper plurality
-
-        rets = ''
-        rets += f"{days} day{'' if days == '1' else 's'}, "
-        rets += f"{hours} hour{'' if hours == '1' else 's'}, "
-        rets += f"{minutes} minute{'' if minutes == '1' else 's'}, "
-        rets += f"{seconds} second{'' if seconds == '1' else 's'}"
-
-        return rets
-
-
-def setup(bot):
-    bot.add_cog(MiscCog(bot))
-
-
-'''
-STRINGS AND STUFF
-'''
-
-
-# help dialog
-help_message = ('**Core commands**\n'
-                '\t`/cond`: Solar conditions (Source: hamqsl.com)\n'
-                '\t`/muf`: Maximum Usable Frequency information (Source: prop.kc2g.com)\n'
-                '\t`/fof2`: Frequency of F2 Layer (NVIS) information (Source: prop.kc2g.com)\n '
-                '\t`/drap`: D Region Absorption Prediction map\n'
-                '\t`/utc`: Time in UTC\n'
-                '\t`/call [callsign]`: Callsign information (Sources: HamQTH'
-                ', callook.info)\n'
-                '\t`/dx [prefix]`: DXCC information about a call prefix\n'
-                '\t`/study`: Studying for your ham license test\n'
-                '\t`/testing`: How to take your ham license test\n'
-                '\t`/hamlive`: Information on using Ham.Live for the HRCC HF Net\n'
-                '\n\t`/about`: About the bot\n'
-                '\t`/uptime`: Bot uptime\n')
-
-
-hb_about = ('**Author**\n'
-             '\tAlek, N4OG\n\n'
-             '\tAdd me to your server! https://discordapp.com/oauth2/authorize?client_id=947361185878147082&scope=bot&permissions=67488832\n\n'
-             '\n**Tools**\n'
-             '\tPython 3.10\n'
-             '\tPy-Cord 2.0.0-beta.7\n'
-             '\tlibrsvg2\n'
-             '\n**Data Sources**\n'
-             '\tSolar conditions from hamqsl.com\n'
-             '\tOnline callsign lookups from HamQTH and callook.info\n'
-             '\tMaximum Usable Frequency (MUF) data from prop.kc2g.com\n'
-             '\n**Uptime**\n\t')
-
-study_text = ("Ham Radio Crash Course Technician License Prep (2022-2026): https://www.youtube.com/watch?v=DdzQS10JnHU&list=PL1KAjn5rGhixvvb_jMZFWmbP97-t9Kyxk&index=1 \n\n"
-        "A good way to study is with the https://ham.study application. You can install the application on a phone or tablet, or you can use it on-line. So, if you don't want to pay the $4 for the application, you can just access it through a browser from any device, even if you're not connected to the Internet. If you access hamstudy with a browser, it's always free, but you do need to Register with your email address for it to keep track of your progress.\n\n"
-'In either case, you should create an account by "Registering" on hamstudy.org. Do not use Google or Facebook - register with an email address. This creates a free account that keeps track of your progress.\n\n '
-"Once you've Registered for your account:\n\n"
-"   • Login to ham.study using your username and password.\n"
-"   • Choose the Technician exam by clicking on Technician (Starting Jul 1, 2022):\n"
-"   • Click on Study Mode:\n"
-"   • Use the drop-down option in the top bar to change from All Questions to just T1\n"
-"   • Click on T1.\n"
-"   • Go through each question in T1, until you've Seen 100% of the questions.\n"
-"   • Go to the next Sub element (T2) when your aptitude is at 85% or more.\n"
-"   • Continue doing this with each sub element.\n"
-"   • Do not skip sub elements.\n"
-"   • Do not take practice exams until you've Seen 100% of each sub element and your Aptitude is 85% or more in each sub element.\n"
-"   • The bar graph on the right will display your Seen and Aptitude.\n\n"
-"There's an explanation of the answer when you're in Study Mode. Just click on I don't know. The reason for I don't know instead of guessing is the app is designed to give you questions more frequently if you select I don't know instead of getting it wrong.\n\n"
-"Once you are done studying for Technician, you can do the same for General and Extra. Substitute the appropriate element you are studying. All credit for this method goes to Norm, K6YXH.")
-
-hb_testing = ("For more information about getting your ham license with the HRCC VE team, check this link: "
-                "\n\nhttps://hrcc.wiki/en/home/VETesting")
-
-hamlive_text = ("Ham.Live allows for a more interactive experience, by providing real-time signal reporting "
+    @slash_command(
+        name="hamlive",
+        description="Live event and webcast links for ham radio."
+    )
+    async def hamlive(self, ctx):
+        """Shares live event and ham webcasts info."""
+        embed = self._embed(
+            title="Live Events & Webcasts",
+            description=(
+                "Ham.Live allows for a more interactive experience, by providing real-time signal reporting "
                 "between net attendees and the ability to visually watch the net progress.\n\n"
 
                 "To get setup with Ham.Live, please click on the dedicated HRCC HF Net Link\n" 
@@ -217,4 +187,36 @@ hamlive_text = ("Ham.Live allows for a more interactive experience, by providing
 
                 "https://en.gravatar.com\n\n"
 
-                "If you encounter any technical issues with the system feel free to contact support@ham.live")
+                "If you encounter any technical issues with the system feel free to contact support@ham.live"
+            )
+        )
+        await ctx.respond(embed=embed, ephemeral=True)
+
+    # ========== Helpers ==========
+
+    def _embed(self, title: str, description: str):
+        """Generate an embed using the embed service, or fallback if unavailable."""
+        if self.embed_service and hasattr(self.embed_service, "generate"):
+            # The embed service should be able to handle coloring/styling
+            return self.embed_service.generate(title=title, description=description)
+        # Fallback simple embed if embed service not loaded
+        import discord
+        color = getattr(self.bot.config, "embedcolor", discord.Color.blue())
+        embed = discord.Embed(title=title, description=description, color=color)
+        return embed
+
+    def _format_uptime(self, total_seconds: int) -> str:
+        """Formats uptime in a human-readable way."""
+        days, remainder = divmod(total_seconds, 86400)
+        hours, remainder = divmod(remainder, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        parts = []
+        if days: parts.append(f"{days}d")
+        if hours: parts.append(f"{hours}h")
+        if minutes: parts.append(f"{minutes}m")
+        parts.append(f"{seconds}s")
+        return " ".join(parts)
+
+
+def setup(bot):
+    bot.add_cog(MiscCog(bot))

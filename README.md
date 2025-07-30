@@ -1,23 +1,53 @@
 # hambot
-hambot (hb) is a Discord bot based on [thisguyistotallyben/hamtheman](https://github.com/thisguyistotallyben/hamtheman) for various amateur radio related lookups, including callsigns (globally with HamQTH), solar conditions, Maximum Usable Frequencies, D-Region Absorption Predictions (d-rap) and Frequency of F2 Layer (foF2)
 
-# Getting started
-This bot is designed to run in a docker container.
+hambot (hb) is a Discord bot for amateur radio lookups: callsigns (globally with HamQTH), solar conditions, Maximum Usable Frequencies, UTC/time, and a morse code translator. Adapted from thisguyistotallben/hamtheman.
 
-## API Keys
-You will first need an API Key for your bot from discord (https://discordapp.com/developers/applications/) and a HamQTH aaccount (https://hamqth.com)
+## Features
+- Global callsign lookups (HamQTH)
+- Solar weather/maps
+- MUF charts
+- UTC/time tools
+- Morse code helper
 
-You can then copy config_default.json to /config/config.json and edit the required parameters with your API and account information.  Your discord user-id will be a number, not your username.  You can search on how to find this using discord developer mode.
+## Getting Started
 
-## Running in docker
-Build the docker container using the included Dockerfile (ex. "docker build -t hambot .")
-Once built, the container can be executed from docker or docker-compose
+You’ll need:
+- A Discord bot [developer token](https://discordapp.com/developers/applications/)
+- A [HamQTH account](https://hamqth.com)
 
-By default, the bot answers to slash commands, which will be registered globaly automatically.
+**Setup:**
+1. Copy the sample config and edit your details:
+        
+```cp config/config.json.example config/config.json```
 
-## Usage
+2. Edit your Discord bot token, Discord user id (numeric), and HamQTH credentials into `config.json`.
 
-Use the /help and /about commands once added to your server to see available options.
+## Running in Docker
+
+Build and start with:
+
+```docker build -t hambot .
+docker run -v $PWD/config:/app/config hambot```
 
 
-Add me to your server! https://discordapp.com/oauth2/authorize?client_id=947361185878147082&scope=bot&permissions=67488832
+By default, hambot responds to slash commands (registered globally). It may take a few minutes for new Discord commands to appear.
+
+## Example Slash Commands
+- `/call <callsign>`
+- `/dx <prefix>`
+- `/cond`
+- `/fof2`
+- `/utc`
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 (GPLv3).  
+See [LICENSE](LICENSE) for the full legal text.
+
+
+---
+For questions, support, or to report issues, visit: [https://github.com/alekm/hambot/issues]
+
+
+
+
