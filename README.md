@@ -26,9 +26,10 @@ You’ll need:
 
 Build and start with:
 
-```docker build -t hambot .
-docker run -v $PWD/config:/app/config hambot```
-
+```
+docker build -t hambot .
+docker run -v $PWD/config:/app/config hambot
+```
 
 By default, hambot responds to slash commands (registered globally). It may take a few minutes for new Discord commands to appear.
 
