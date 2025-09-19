@@ -3,9 +3,24 @@ services:
     image: alekmurray/hambot:latest
     container_name: hambot
     environment:
+      # Discord Bot Configuration (Required)
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_OWNER_ID=${DISCORD_OWNER_ID}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      
+      # HamQTH API Configuration (Required)
+      - HAMQTH_USERNAME=${HAMQTH_USERNAME}
+      - HAMQTH_PASSWORD=${HAMQTH_PASSWORD}
+      
+      # Optional Configuration
+      - DISCORD_GUILD_ID=${DISCORD_GUILD_ID:-}
+      - EMBED_COLOR=${EMBED_COLOR:-0x31a896}
+      
+      # System Configuration
       - PUID=1000
       - PGID=1000
       - TZ=America/New_York
     volumes:
-      - /path/to/hambot/config:/app/config
+      # Only need to mount config directory for HamQTH session key storage
+      - ./config:/app/config
     restart: unless-stopped

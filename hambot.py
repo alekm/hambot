@@ -43,24 +43,58 @@ async def on_ready():
 
 
 # =======================
-# Load Configuration
+# Load Configuration from Environment Variables
 # =======================
-CONFIG_PATH = os.getenv("HAMBOT_CONFIG", "./config/config.json")
+def load_config_from_env():
+    """Load configuration from environment variables with validation."""
+    config = {}
+    
+    # Required environment variables
+    required_vars = {
+        'DISCORD_TOKEN': 'token',
+        'DISCORD_OWNER_ID': 'ownerId',
+        'DISCORD_CLIENT_ID': 'clientID',
+        'HAMQTH_USERNAME': 'hamqth_username',
+        'HAMQTH_PASSWORD': 'hamqth_password'
+    }
+    
+    # Check for required variables
+    missing_vars = []
+    for env_var, config_key in required_vars.items():
+        value = os.getenv(env_var)
+        if not value:
+            missing_vars.append(env_var)
+        else:
+            config[config_key] = value
+    
+    if missing_vars:
+        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
+        raise SystemExit(1)
+    
+    # Optional environment variables with defaults
+    config['embedcolor'] = int(os.getenv('EMBED_COLOR', '0x31a896'), 16)
+    config['guildId'] = os.getenv('DISCORD_GUILD_ID', '')
+    
+    # HamQTH configuration
+    config['hamqth'] = {
+        'username': config['hamqth_username'],
+        'password': config['hamqth_password']
+    }
+    # Remove the individual keys since they're now in hamqth dict
+    del config['hamqth_username']
+    del config['hamqth_password']
+    
+    logger.info('Configuration loaded from environment variables.')
+    return config
+
 try:
-    with open(CONFIG_PATH, 'r') as f:
-        logger.info('Loading config...')
-        config = json.load(f)
-        config['embedcolor'] = int(config['embedcolor'], 16)
-        logger.info('Config loaded.')
-except FileNotFoundError:
-    logger.error(f"Config file not found at {CONFIG_PATH}")
-    raise SystemExit(1)
+    config = load_config_from_env()
 except Exception as ex:
-    logger.error(f"Failed to load config: {ex}")
+    logger.error(f"Failed to load configuration: {ex}")
     raise SystemExit(1)
 
 # Apply config properties to bot
-bot.owner_id = config['ownerId']
+bot.owner_id = int(config['ownerId'])
 bot.start_time = time.time()
 bot.config = config
 
