@@ -115,7 +115,10 @@ for cog in cogs:
         bot.load_extension(cog)
         logger.info(f'Loaded {cog}')
     except Exception as e:
-        logger.error(f'Failed to load {cog}: {e}')
+        logger.error(f'Failed to load {cog}: {str(e)}')
+        logger.error(f'Error type: {type(e).__name__}')
+        import traceback
+        logger.error(f'Traceback: {traceback.format_exc()}')
 logger.info('All extensions attempted.')
 
 # =======================

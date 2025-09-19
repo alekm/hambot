@@ -44,7 +44,12 @@ class LookupCog(commands.Cog):
 
     async def cog_load(self):
         # If HamQTH uses an async connect, call it here
-        await self.hamqth.connect()
+        try:
+            await self.hamqth.connect()
+            logger.info("HamQTH connection established successfully")
+        except Exception as e:
+            logger.error(f"Failed to connect to HamQTH: {str(e)}")
+            logger.warning("HamQTH lookups will not be available, but Callook will still work")
 
     @slash_command(name="cond", description="Replies with Current Solar Conditions")
     async def cond(self, ctx):
