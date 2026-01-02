@@ -174,14 +174,16 @@ class MetricsCog(commands.Cog):
     @commands.Cog.listener()
     async def on_application_command(self, ctx):
         """Track all slash command usage automatically."""
+        logger.info(f"MetricsCog.on_application_command called for command: {ctx.command.name if ctx.command else 'unknown'}")
         guild_id = ctx.guild.id if ctx.guild else None
         command_name = ctx.command.name if ctx.command else "unknown"
 
         # Don't track the metrics command itself
         if command_name == "metrics":
+            logger.info("Skipping metrics command tracking")
             return
 
-        logger.debug(f"Tracking command: {command_name} in guild: {guild_id}")
+        logger.info(f"Tracking command: {command_name} in guild: {guild_id}")
         await self.increment_command(guild_id, command_name)
 
     @commands.Cog.listener()
