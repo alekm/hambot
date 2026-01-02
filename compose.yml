@@ -15,7 +15,11 @@ services:
       # Optional Configuration
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID:-}
       - EMBED_COLOR=${EMBED_COLOR:-0x31a896}
-      
+
+      # Reporting to hambot.net (Optional)
+      - REPORT_URL=${REPORT_URL:-}
+      - REPORT_API_KEY=${REPORT_API_KEY:-}
+
       # System Configuration
       - PUID=1000
       - PGID=1000

@@ -4,6 +4,7 @@ import json
 import logging
 from discord.ext import commands
 import discord
+from reporter import BotReporter
 
 # =======================
 # Logging Setup
@@ -32,7 +33,7 @@ bot = commands.Bot(
 )
 
 # =======================
-# Event: on_ready
+# Events
 # =======================
 @bot.event
 async def on_ready():
@@ -40,6 +41,22 @@ async def on_ready():
     logger.info(f'Servers: {len(bot.guilds)}')
     logger.info('Ready...')
     logger.info('WELCOME TO HAMBOT\n-----\n')
+
+    # Start reporter
+    await reporter.start()
+
+
+@bot.event
+async def on_application_command(ctx):
+    """Track slash command usage for reporting."""
+    if ctx.command:
+        reporter.record_command(ctx.command.name)
+
+
+@bot.event
+async def on_close():
+    """Cleanup when bot shuts down."""
+    await reporter.stop()
 
 
 # =======================
@@ -97,6 +114,10 @@ except Exception as ex:
 bot.owner_id = int(config['ownerId'])
 bot.start_time = time.time()
 bot.config = config
+bot.version = "2.0.0"  # Bot version for reporting
+
+# Initialize reporter
+reporter = BotReporter(bot)
 
 # =======================
 # Extension (Cog) Loading
