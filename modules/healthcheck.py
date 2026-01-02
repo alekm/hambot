@@ -34,6 +34,7 @@ class HealthcheckCog(commands.Cog):
         try:
             # Ensure config directory exists
             HEALTHCHECK_FILE.parent.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Writing healthcheck to {HEALTHCHECK_FILE}")
 
             # Prepare healthcheck data
             status = {
@@ -49,13 +50,13 @@ class HealthcheckCog(commands.Cog):
                 json.dump(status, f)
             temp_file.replace(HEALTHCHECK_FILE)
 
-            logger.debug(
-                f"Heartbeat: {status['status']}, "
+            logger.info(
+                f"Heartbeat written: {status['status']}, "
                 f"guilds={status['guilds']}, "
                 f"latency={status['latency']}ms"
             )
         except Exception as e:
-            logger.error(f"Failed to write healthcheck heartbeat: {e}")
+            logger.error(f"Failed to write healthcheck heartbeat: {e}", exc_info=True)
 
     @_heartbeat_task.before_loop
     async def before_heartbeat(self):

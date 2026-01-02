@@ -81,6 +81,7 @@ class MetricsCog(commands.Cog):
             try:
                 # Ensure config directory exists
                 self.metrics_file.parent.mkdir(parents=True, exist_ok=True)
+                logger.info(f"Saving metrics to {self.metrics_file}")
 
                 # Write to temp file first, then atomic rename
                 temp_file = self.metrics_file.with_suffix('.json.tmp')
@@ -89,9 +90,9 @@ class MetricsCog(commands.Cog):
 
                 # Atomic rename (safe on POSIX)
                 temp_file.replace(self.metrics_file)
-                logger.debug(f"Saved metrics for {len(self.metrics)} guild(s)")
+                logger.info(f"Saved metrics for {len(self.metrics)} guild(s) to {self.metrics_file}")
             except Exception as e:
-                logger.error(f"Failed to save metrics: {e}")
+                logger.error(f"Failed to save metrics: {e}", exc_info=True)
 
     @tasks.loop(minutes=5)
     async def _autosave_task(self):
