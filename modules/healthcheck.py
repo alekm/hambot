@@ -23,7 +23,7 @@ class HealthcheckCog(commands.Cog):
     async def cog_load(self):
         """Start heartbeat task when cog loads."""
         logger.info("HealthcheckCog cog_load() called")
-        await self.start_heartbeat()
+        self.start_heartbeat()
 
     def start_heartbeat(self):
         """Start the heartbeat task (can be called from on_ready as fallback)."""
