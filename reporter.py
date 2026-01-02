@@ -109,7 +109,7 @@ class BotReporter:
             "version": getattr(self.bot, "version", "unknown"),
             "uptime": uptime,
             "serverCount": len(self.bot.guilds),
-            "timestamp": int(datetime.now().timestamp()),  # Unix timestamp for server to use
+            "timestamp": int(datetime.now().timestamp() * 1000),  # Unix timestamp in milliseconds for JavaScript Date
         }
 
         result = await self._make_request("heartbeat", data)
@@ -134,7 +134,7 @@ class BotReporter:
         data = {
             "stats": stats,
             "period": "hourly",
-            "timestamp": int(datetime.now().timestamp()),  # Unix timestamp for server to use
+            "timestamp": int(datetime.now().timestamp() * 1000),  # Unix timestamp in milliseconds for JavaScript Date
         }
 
         result = await self._make_request("stats", data)
