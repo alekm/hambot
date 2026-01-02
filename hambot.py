@@ -168,7 +168,7 @@ except Exception as ex:
 bot.owner_id = int(config['ownerId'])
 bot.start_time = time.time()
 bot.config = config
-bot.version = "2.0.0"  # Bot version for reporting
+bot.version = "2.1.0"  # Bot version for reporting
 
 # Initialize reporter
 reporter = BotReporter(bot)
