@@ -64,7 +64,7 @@ class MiscCog(commands.Cog):
                 '\t`/hamlive`: Information on using Ham.Live for the HRCC HF Net\n'
                 '\n\t`/about`: About the bot\n'
                 '\t`/uptime`: Bot uptime\n'
-                '\n**Alert commands** (requires database)\n'
+                '\n**Alert commands**\n'
                 '\t`/addalert [callsign] [modes]`: Add a spot alert\n'
                 '\t`/removealert [id]`: Remove an alert\n'
                 '\t`/listalerts`: List your active alerts\n'
