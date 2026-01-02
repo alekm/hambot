@@ -23,9 +23,18 @@ class MetricsCog(commands.Cog):
         self.metrics = {}
         self.metrics_file = Path("/app/config/metrics.json")
         self.lock = asyncio.Lock()
+        self._autosave_started = False
 
     async def cog_load(self):
         """Called when the cog is loaded/reloaded."""
+        await self.start_autosave()
+
+    async def start_autosave(self):
+        """Start the autosave task (can be called from on_ready as fallback)."""
+        if self._autosave_started:
+            logger.info("Metrics autosave task already started")
+            return
+        
         # Get embed service
         self.embed_service = self.bot.get_cog('EmbedCog')
         if not self.embed_service:
@@ -35,8 +44,15 @@ class MetricsCog(commands.Cog):
         await self._load_metrics()
 
         # Start autosave task
-        self._autosave_task.start()
-        logger.info("MetricsCog loaded successfully")
+        try:
+            if not self._autosave_task.is_running():
+                self._autosave_task.start()
+                self._autosave_started = True
+                logger.info("MetricsCog autosave task started successfully")
+            else:
+                logger.info("Metrics autosave task already running")
+        except Exception as e:
+            logger.error(f"Failed to start metrics autosave task: {e}", exc_info=True)
 
     async def cog_unload(self):
         """Called when the cog is unloaded."""
@@ -107,7 +123,8 @@ class MetricsCog(commands.Cog):
 
         guild_key = str(guild_id)
         async with self.lock:
-            if guild_key not in self.metrics:
+            is_new_guild = guild_key not in self.metrics
+            if is_new_guild:
                 self.metrics[guild_key] = {
                     "commands": {},
                     "errors": 0,
@@ -118,6 +135,11 @@ class MetricsCog(commands.Cog):
             guild_metrics = self.metrics[guild_key]
             guild_metrics["commands"][command_name] = guild_metrics["commands"].get(command_name, 0) + 1
             guild_metrics["total"] += 1
+            
+            # Save immediately if this is a new guild (first command tracked)
+            if is_new_guild:
+                logger.info(f"New guild tracked, saving metrics immediately")
+                await self._save_metrics()
 
     async def increment_error(self, guild_id: int):
         """Increment error counter for a specific guild."""
