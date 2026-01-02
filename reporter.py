@@ -1,15 +1,14 @@
 """
-Reporter module for hambot to send heartbeat and usage statistics to hambot.net
+Reporter module for hambot to send heartbeat and usage statistics.
+
+Supports two modes:
+    1. Direct database writes (preferred) - if DATABASE_URL is configured
+    2. HTTP API (fallback) - if REPORT_URL and REPORT_API_KEY are configured
 
 Usage:
-    1. Copy this file to your hambot repository
-    2. Add environment variables:
-       - REPORT_URL: Base URL of the reporting API (e.g., https://hambot.net/api/bot)
-       - REPORT_API_KEY: API key for authentication
-    3. Import and initialize in your bot's main file:
-       from reporter import BotReporter
-       reporter = BotReporter(bot)
-       await reporter.start()
+    from reporter import BotReporter
+    reporter = BotReporter(bot)
+    await reporter.start()
 """
 
 import os
@@ -25,29 +24,43 @@ logger = logging.getLogger(__name__)
 
 
 class BotReporter:
-    """Handles reporting bot status and usage statistics to hambot.net"""
+    """Handles reporting bot status and usage statistics."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.report_url = os.getenv("REPORT_URL")
         self.api_key = os.getenv("REPORT_API_KEY")
-        self.enabled = bool(self.report_url and self.api_key)
+        
+        # Will be set in start() when bot.config is available
+        self.use_database = False
+        self.use_api = bool(self.report_url and self.api_key)
+        self.bot_id = 'unknown'
 
         # Track command usage
         self.command_counts: Dict[str, int] = {}
         self.start_time = datetime.now()
 
-        if not self.enabled:
-            logger.warning(
-                "Bot reporter disabled: REPORT_URL and REPORT_API_KEY must be set"
-            )
-        else:
-            logger.info(f"Bot reporter enabled, reporting to {self.report_url}")
-
     async def start(self):
         """Start the reporter tasks"""
+        # Check if database is available (preferred method)
+        # bot.config should be available by now
+        if hasattr(self.bot, 'config'):
+            self.use_database = 'database_url' in self.bot.config
+            self.bot_id = str(self.bot.config.get('clientID', 'unknown'))
+        else:
+            self.use_database = False
+            self.bot_id = 'unknown'
+        
+        self.enabled = self.use_database or self.use_api
+
         if not self.enabled:
+            logger.info("Bot reporter disabled: Set DATABASE_URL (preferred) or REPORT_URL+REPORT_API_KEY")
             return
+
+        if self.use_database:
+            logger.info(f"Bot reporter enabled: Using direct database writes (bot_id: {self.bot_id})")
+        else:
+            logger.info(f"Bot reporter enabled: Using HTTP API (bot_id: {self.bot_id}, URL: {self.report_url})")
 
         # Wait for bot to be ready
         await self.bot.wait_until_ready()
@@ -103,20 +116,43 @@ class BotReporter:
     async def send_heartbeat(self):
         """Send bot status heartbeat"""
         uptime = int((datetime.now() - self.start_time).total_seconds())
+        version = getattr(self.bot, "version", "unknown")
+        server_count = len(self.bot.guilds)
 
-        data = {
-            "status": "online",
-            "version": getattr(self.bot, "version", "unknown"),
-            "uptime": uptime,
-            "serverCount": len(self.bot.guilds),
-            "timestamp": int(datetime.now().timestamp() * 1000),  # Unix timestamp in milliseconds for JavaScript Date
-        }
+        # Try database first (preferred)
+        if self.use_database:
+            try:
+                from database.connection import _pool
+                if _pool is not None:
+                    from database.models import record_heartbeat
+                    from datetime import datetime
+                    await record_heartbeat(
+                        status="online",
+                        version=version,
+                        uptime=uptime,
+                        server_count=server_count,
+                        timestamp=datetime.utcnow()
+                    )
+                    logger.debug(f"Heartbeat written to database")
+                    return
+            except Exception as e:
+                logger.warning(f"Failed to write heartbeat to database: {e}, falling back to API")
+        
+        # Fall back to HTTP API
+        if self.use_api:
+            data = {
+                "status": "online",
+                "version": version,
+                "uptime": uptime,
+                "serverCount": server_count,
+                "timestamp": int(datetime.now().timestamp() * 1000),  # Unix timestamp in milliseconds for JavaScript Date
+            }
 
-        result = await self._make_request("heartbeat", data)
-        if result:
-            logger.info(f"Heartbeat sent successfully to {self.report_url}/heartbeat")
-        else:
-            logger.warning(f"Heartbeat failed to send (check errors above)")
+            result = await self._make_request("heartbeat", data)
+            if result:
+                logger.info(f"Heartbeat sent successfully to {self.report_url}/heartbeat")
+            else:
+                logger.warning(f"Heartbeat failed to send (check errors above)")
 
     async def send_stats(self):
         """Send aggregated usage statistics"""
@@ -131,22 +167,51 @@ class BotReporter:
 
         logger.info(f"Sending stats: {len(stats)} command types, total commands: {sum(s['count'] for s in stats)}")
 
-        data = {
-            "stats": stats,
-            "period": "hourly",
-            "timestamp": int(datetime.now().timestamp() * 1000),  # Unix timestamp in milliseconds for JavaScript Date
-        }
+        # Try database first (preferred)
+        if self.use_database:
+            try:
+                from database.connection import _pool
+                if _pool is not None:
+                    from database.models import record_stats
+                    from datetime import datetime
+                    await record_stats(
+                        stats=stats,
+                        period="hourly",
+                        timestamp=datetime.utcnow()
+                    )
+                    logger.debug(f"Stats written to database")
+                    # Reset counters after successful write
+                    self.command_counts.clear()
+                    return
+            except Exception as e:
+                logger.warning(f"Failed to write stats to database: {e}, falling back to API")
+        
+        # Fall back to HTTP API
+        if self.use_api:
+            data = {
+                "stats": stats,
+                "period": "hourly",
+                "timestamp": int(datetime.now().timestamp() * 1000),  # Unix timestamp in milliseconds for JavaScript Date
+            }
 
-        result = await self._make_request("stats", data)
-        if result:
-            logger.info(f"Stats sent successfully: {result}")
-            # Reset counters after successful send
-            self.command_counts.clear()
+            result = await self._make_request("stats", data)
+            if result:
+                logger.info(f"Stats sent successfully: {result}")
+                # Reset counters after successful send
+                self.command_counts.clear()
 
     def record_command(self, command_name: str):
         """Record a command execution"""
-        if not self.enabled:
-            return
+        # Check if enabled (may not be set if start() hasn't been called yet)
+        if not hasattr(self, 'enabled') or not self.enabled:
+            # Re-check if we should be enabled (in case start() hasn't been called yet)
+            if hasattr(self.bot, 'config'):
+                use_db = 'database_url' in self.bot.config
+                use_api = bool(self.report_url and self.api_key)
+                if not (use_db or use_api):
+                    return
+            else:
+                return
 
         self.command_counts[command_name] = (
             self.command_counts.get(command_name, 0) + 1
@@ -157,7 +222,7 @@ class BotReporter:
     @tasks.loop(minutes=5)
     async def heartbeat_task(self):
         """Periodic heartbeat task (every 5 minutes)"""
-        logger.info("Sending periodic heartbeat to reporting server")
+        logger.debug("Sending periodic heartbeat")
         await self.send_heartbeat()
 
     @tasks.loop(hours=1)
@@ -174,22 +239,24 @@ class BotReporter:
 
 # Example integration in bot's main file:
 """
-# In your main bot file (e.g., main.py or bot.py):
+# In your main bot file (e.g., hambot.py):
 
 from reporter import BotReporter
 
 # ... your bot initialization code ...
 
 bot = commands.Bot(command_prefix='/', intents=intents)
+bot.config = config  # Make sure config is set before initializing reporter
 bot.version = "1.0.0"  # Set your bot version
 
-# Initialize reporter
+# Initialize reporter (after bot.config is set)
 reporter = BotReporter(bot)
 
 # Hook into command execution to track usage
 @bot.event
-async def on_command_completion(ctx):
-    reporter.record_command(ctx.command.name)
+async def on_application_command(ctx):
+    if ctx.command and ctx.command.name != "metrics":
+        reporter.record_command(ctx.command.name)
 
 @bot.event
 async def on_ready():

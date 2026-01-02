@@ -5,3 +5,4 @@ common
 aiohttp>=3.8
 aiofiles
 psutil>=5.9.0
+asyncpg>=0.29.0

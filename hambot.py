@@ -5,6 +5,8 @@ import logging
 from discord.ext import commands
 import discord
 from reporter import BotReporter
+from database.connection import init_pool, close_pool
+from database.models import create_schema
 
 # =======================
 # Logging Setup
@@ -41,6 +43,26 @@ async def on_ready():
     logger.info(f'Servers: {len(bot.guilds)}')
     logger.info('Ready...')
     logger.info('WELCOME TO HAMBOT\n-----\n')
+    
+    # Initialize database if configured
+    if 'database_url' in config:
+        try:
+            # Check if pool exists, if not initialize it
+            from database.connection import _pool
+            if _pool is None:
+                logger.info("Initializing database connection pool...")
+                await init_pool(config['database_url'])
+                logger.info("Database connection pool initialized")
+                
+                # Create schema
+                await create_schema()
+                logger.info("Database schema initialized")
+            else:
+                logger.info("Database pool already initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize database in on_ready: {e}", exc_info=True)
+    else:
+        logger.info("Database not configured - alert features will be disabled")
 
     # Start reporter
     await reporter.start()
@@ -67,6 +89,9 @@ async def on_application_command(ctx):
 async def on_close():
     """Cleanup when bot shuts down."""
     await reporter.stop()
+    # Close database pool
+    await close_pool()
+    logger.info("Bot shutdown complete")
 
 
 # =======================
@@ -111,6 +136,25 @@ def load_config_from_env():
     del config['hamqth_username']
     del config['hamqth_password']
     
+    # Database configuration (optional - for alert features)
+    database_url = os.getenv('DATABASE_URL') or os.getenv('POSTGRES_URL')
+    if database_url and not database_url.startswith('${{'):
+        config['database_url'] = database_url
+    else:
+        logger.info("DATABASE_URL not set - alert features will be disabled")
+    
+    # Alert configuration (optional)
+    config['poll_interval'] = int(os.getenv('PSKREPORTER_POLL_INTERVAL', '2'))
+    config['expiration_days'] = int(os.getenv('ALERT_EXPIRATION_DAYS', '30'))
+    
+    # Default modes
+    default_modes_str = os.getenv('DEFAULT_MODES_PSKREPORTER', 'FT8,FT4,PSK31,CW,RTTY')
+    config['default_modes_pskreporter'] = [m.strip().upper() for m in default_modes_str.split(',') if m.strip()]
+    
+    # Enabled data sources
+    enabled_sources_str = os.getenv('ENABLED_DATA_SOURCES', 'pskreporter')
+    config['enabled_data_sources'] = [s.strip().lower() for s in enabled_sources_str.split(',') if s.strip()]
+    
     logger.info('Configuration loaded from environment variables.')
     return config
 
@@ -141,6 +185,9 @@ cogs = [
     'modules.metrics',
     'modules.healthcheck',
     'modules.owner',
+    'modules.alerts',
+    'modules.spot_monitor',
+    'modules.expiration_service',
 ]
 
 logger.info('Loading extensions...')
@@ -173,3 +220,15 @@ except ConnectionResetError as ex:
 except Exception as ex:
     logger.critical(f"Unexpected error: {ex}")
     raise SystemExit(f"Critical unexpected error: {ex}")
+finally:
+    # Cleanup on exit - but only if we're in an event loop
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Schedule cleanup
+            asyncio.create_task(close_pool())
+        else:
+            asyncio.run(close_pool())
+    except:
+        pass
