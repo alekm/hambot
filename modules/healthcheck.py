@@ -17,11 +17,16 @@ class HealthcheckCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        logger.info("HealthcheckCog __init__ called")
 
     async def cog_load(self):
         """Start heartbeat task when cog loads."""
-        self._heartbeat_task.start()
-        logger.info("Healthcheck heartbeat started")
+        logger.info("HealthcheckCog cog_load() called")
+        try:
+            self._heartbeat_task.start()
+            logger.info("Healthcheck heartbeat task started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start healthcheck heartbeat task: {e}", exc_info=True)
 
     async def cog_unload(self):
         """Stop heartbeat task on unload."""
@@ -61,7 +66,9 @@ class HealthcheckCog(commands.Cog):
     @_heartbeat_task.before_loop
     async def before_heartbeat(self):
         """Wait for bot to be ready before starting heartbeat."""
+        logger.info("Healthcheck task before_loop: waiting for bot to be ready")
         await self.bot.wait_until_ready()
+        logger.info("Healthcheck task before_loop: bot is ready, starting heartbeat loop")
 
 
 def setup(bot):
