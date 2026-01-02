@@ -125,7 +125,6 @@ class BotReporter:
                 from database.connection import _pool
                 if _pool is not None:
                     from database.models import record_heartbeat
-                    from datetime import datetime
                     await record_heartbeat(
                         status="online",
                         version=version,
@@ -173,7 +172,6 @@ class BotReporter:
                 from database.connection import _pool
                 if _pool is not None:
                     from database.models import record_stats
-                    from datetime import datetime
                     await record_stats(
                         stats=stats,
                         period="hourly",
