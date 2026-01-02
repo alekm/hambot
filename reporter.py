@@ -55,8 +55,10 @@ class BotReporter:
         # Start periodic tasks
         self.heartbeat_task.start()
         self.stats_task.start()
+        logger.info("Reporter tasks started: heartbeat every 5min, stats every 1hr")
 
         # Send initial heartbeat
+        logger.info("Sending initial heartbeat")
         await self.send_heartbeat()
 
     async def stop(self):
@@ -111,7 +113,9 @@ class BotReporter:
 
         result = await self._make_request("heartbeat", data)
         if result:
-            logger.debug(f"Heartbeat sent successfully: {result}")
+            logger.info(f"Heartbeat sent successfully to {self.report_url}/heartbeat")
+        else:
+            logger.warning(f"Heartbeat failed to send (check errors above)")
 
     async def send_stats(self):
         """Send aggregated usage statistics"""
@@ -148,6 +152,7 @@ class BotReporter:
     @tasks.loop(minutes=5)
     async def heartbeat_task(self):
         """Periodic heartbeat task (every 5 minutes)"""
+        logger.info("Sending periodic heartbeat to reporting server")
         await self.send_heartbeat()
 
     @tasks.loop(hours=1)
