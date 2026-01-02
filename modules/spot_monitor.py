@@ -7,7 +7,8 @@ from discord.ext import commands, tasks
 from providers.pskreporter import PSKReporterProvider
 from providers.base import BaseSpotProvider
 from database.models import (
-    get_active_alerts_by_source, record_spot_sent, check_spot_sent, create_user
+    get_active_alerts_by_source, record_spot_sent, check_spot_sent, create_user,
+    check_alert_cooldown, update_alert_cooldown, get_user_alert_count_recent
 )
 from database.connection import get_pool
 from utils.formatters import format_alert_embed
@@ -22,6 +23,8 @@ class SpotMonitorCog(commands.Cog):
         self.poll_interval = bot.config.get('poll_interval', 2)
         self.enabled_sources = bot.config.get('enabled_data_sources', ['pskreporter'])
         self.database_available = 'database_url' in bot.config
+        self.cooldown_minutes = bot.config.get('alert_cooldown_minutes', 5)
+        self.max_alerts_per_hour = bot.config.get('max_alerts_per_user_per_hour', 20)
         
         # Initialize providers
         self.providers: dict[str, BaseSpotProvider] = {}
@@ -154,7 +157,12 @@ class SpotMonitorCog(commands.Cog):
                             alert['id']
                         )
                         if not already_sent:
-                            matches.append((spot, alert))
+                            # Check alert cooldown (throttling per alert)
+                            in_cooldown = await check_alert_cooldown(alert['id'], self.cooldown_minutes)
+                            if not in_cooldown:
+                                matches.append((spot, alert))
+                            else:
+                                logger.debug(f"Alert {alert['id']} in cooldown, skipping spot {spot.spot_id}")
         
         # Send alerts for matches
         for spot, alert in matches:
@@ -164,8 +172,14 @@ class SpotMonitorCog(commands.Cog):
                 logger.error(f"Error sending alert for spot {spot.spot_id}: {e}", exc_info=True)
     
     async def _send_alert(self, spot, alert):
-        """Send a DM alert to the user."""
+        """Send a DM alert to the user with rate limiting."""
         try:
+            # Check per-user rate limit
+            recent_count = await get_user_alert_count_recent(alert['user_id'], minutes=60)
+            if recent_count >= self.max_alerts_per_hour:
+                logger.warning(f"User {alert['user_id']} has reached rate limit ({recent_count} alerts in last hour)")
+                return
+            
             # Get user
             user = await self.bot.fetch_user(alert['user_id'])
             if user is None:
@@ -182,7 +196,7 @@ class SpotMonitorCog(commands.Cog):
                 embed_color=self.embed_color
             )
             
-            # Send DM
+            # Send DM with rate limit handling
             try:
                 await user.send(embed=embed)
                 logger.info(f"Alert sent to {user.id} for {spot.callsign} on {spot.mode}")
@@ -190,6 +204,12 @@ class SpotMonitorCog(commands.Cog):
                 logger.warning(f"Cannot send DM to user {user.id} (blocked or DMs disabled)")
                 return
             except discord.HTTPException as e:
+                # Handle Discord rate limits (429 Too Many Requests)
+                if e.status == 429:
+                    retry_after = e.retry_after if hasattr(e, 'retry_after') else 60
+                    logger.warning(f"Discord rate limit hit, retry after {retry_after}s")
+                    # Don't update cooldown, let it retry later
+                    return
                 logger.error(f"HTTP error sending DM to {user.id}: {e}")
                 return
             
@@ -203,6 +223,9 @@ class SpotMonitorCog(commands.Cog):
                 frequency=spot.frequency,
                 timestamp=spot.timestamp
             )
+            
+            # Update cooldown (throttling)
+            await update_alert_cooldown(alert['id'])
             
             # Ensure user exists in database
             await create_user(user.id, str(user))

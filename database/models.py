@@ -62,6 +62,15 @@ async def create_schema():
                     )
                 """)
                 
+                # Create alert_cooldowns table for throttling
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS alert_cooldowns (
+                        alert_id INTEGER NOT NULL REFERENCES alerts(id) ON DELETE CASCADE,
+                        last_sent TIMESTAMP NOT NULL DEFAULT NOW(),
+                        PRIMARY KEY (alert_id)
+                    )
+                """)
+                
                 # Create bot_status table for reporting (matches hambot.net schema)
                 await conn.execute("""
                     CREATE TABLE IF NOT EXISTS bot_status (
@@ -104,6 +113,12 @@ async def create_schema():
                 """)
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_spot_history_spot_source ON spot_history(spot_source)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_spot_history_sent_at ON spot_history(sent_at)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_spot_history_alert_id_sent_at ON spot_history(alert_id, sent_at)
                 """)
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_bot_status_last_heartbeat ON bot_status(last_heartbeat)
@@ -257,6 +272,75 @@ async def check_spot_sent(spot_id: str, spot_source: str, alert_id: int) -> bool
         """, spot_id, spot_source, alert_id)
         
         return row is not None
+
+
+async def check_alert_cooldown(alert_id: int, cooldown_minutes: int = 5) -> bool:
+    """
+    Check if an alert is in cooldown (throttling).
+    
+    Args:
+        alert_id: Alert ID to check
+        cooldown_minutes: Cooldown period in minutes
+        
+    Returns:
+        True if alert is in cooldown (should not send), False if OK to send
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT last_sent FROM alert_cooldowns
+            WHERE alert_id = $1
+        """, alert_id)
+        
+        if row is None:
+            # No cooldown record, OK to send
+            return False
+        
+        last_sent = row['last_sent']
+        cooldown_end = last_sent + timedelta(minutes=cooldown_minutes)
+        
+        if datetime.utcnow() < cooldown_end:
+            # Still in cooldown
+            return True
+        
+        # Cooldown expired, OK to send
+        return False
+
+
+async def update_alert_cooldown(alert_id: int) -> None:
+    """Update the cooldown timestamp for an alert (call after sending)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO alert_cooldowns (alert_id, last_sent)
+            VALUES ($1, NOW())
+            ON CONFLICT (alert_id) DO UPDATE SET last_sent = NOW()
+        """, alert_id)
+
+
+async def get_user_alert_count_recent(user_id: int, minutes: int = 60) -> int:
+    """
+    Get count of alerts sent to a user in the last N minutes (for rate limiting).
+    
+    Args:
+        user_id: User ID
+        minutes: Time window in minutes
+        
+    Returns:
+        Count of alerts sent
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Use make_interval for safe parameterized query
+        row = await conn.fetchrow("""
+            SELECT COUNT(DISTINCT sh.alert_id) as count
+            FROM spot_history sh
+            JOIN alerts a ON sh.alert_id = a.id
+            WHERE a.user_id = $1
+            AND sh.sent_at > NOW() - make_interval(mins => $2)
+        """, user_id, minutes)
+        
+        return row['count'] if row else 0
 
 
 async def expire_alerts() -> int:
