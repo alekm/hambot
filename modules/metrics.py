@@ -97,22 +97,24 @@ class MetricsCog(commands.Cog):
             try:
                 # Ensure config directory exists
                 self.metrics_file.parent.mkdir(parents=True, exist_ok=True)
-                logger.info(f"Saving metrics to {self.metrics_file}")
+                logger.info(f"Saving metrics to {self.metrics_file} (guilds: {len(self.metrics)})")
 
                 # Write to temp file first, then atomic rename
                 temp_file = self.metrics_file.with_suffix('.json.tmp')
+                metrics_json = json.dumps(self.metrics, indent=2)
                 async with aiofiles.open(temp_file, 'w') as f:
-                    await f.write(json.dumps(self.metrics, indent=2))
+                    await f.write(metrics_json)
 
                 # Atomic rename (safe on POSIX)
                 temp_file.replace(self.metrics_file)
-                logger.info(f"Saved metrics for {len(self.metrics)} guild(s) to {self.metrics_file}")
+                logger.info(f"Saved metrics for {len(self.metrics)} guild(s) to {self.metrics_file} ({len(metrics_json)} bytes)")
             except Exception as e:
                 logger.error(f"Failed to save metrics: {e}", exc_info=True)
 
     @tasks.loop(minutes=5)
     async def _autosave_task(self):
         """Autosave metrics every 5 minutes."""
+        logger.info(f"Autosave: saving metrics for {len(self.metrics)} guild(s)")
         await self._save_metrics()
 
     async def increment_command(self, guild_id: int, command_name: str):
@@ -135,6 +137,7 @@ class MetricsCog(commands.Cog):
             guild_metrics = self.metrics[guild_key]
             guild_metrics["commands"][command_name] = guild_metrics["commands"].get(command_name, 0) + 1
             guild_metrics["total"] += 1
+            logger.info(f"Incremented command {command_name} for guild {guild_id}. Total: {guild_metrics['total']}")
             
             # Save immediately if this is a new guild (first command tracked)
             if is_new_guild:
@@ -178,6 +181,7 @@ class MetricsCog(commands.Cog):
         if command_name == "metrics":
             return
 
+        logger.debug(f"Tracking command: {command_name} in guild: {guild_id}")
         await self.increment_command(guild_id, command_name)
 
     @commands.Cog.listener()
