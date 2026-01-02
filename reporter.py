@@ -132,6 +132,7 @@ class BotReporter:
         data = {
             "stats": stats,
             "period": "hourly",
+            "timestamp": int(datetime.now().timestamp()),  # Unix timestamp for server to use
         }
 
         result = await self._make_request("stats", data)
