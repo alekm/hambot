@@ -243,7 +243,8 @@ class MetricsCog(commands.Cog):
 
     @slash_command(
         name="metrics",
-        description="View command usage statistics for this server (admin only)"
+        description="View command usage statistics for this server (admin only)",
+        default_member_permissions=discord.Permissions(administrator=True)
     )
     async def metrics(self, ctx):
         """Display server command usage metrics."""
