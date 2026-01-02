@@ -129,6 +129,8 @@ class BotReporter:
             for cmd, count in self.command_counts.items()
         ]
 
+        logger.info(f"Sending stats: {len(stats)} command types, total commands: {sum(s['count'] for s in stats)}")
+
         data = {
             "stats": stats,
             "period": "hourly",
@@ -149,7 +151,8 @@ class BotReporter:
         self.command_counts[command_name] = (
             self.command_counts.get(command_name, 0) + 1
         )
-        logger.debug(f"Recorded command: {command_name}")
+        total = sum(self.command_counts.values())
+        logger.debug(f"Recorded command: {command_name} (total tracked: {total})")
 
     @tasks.loop(minutes=5)
     async def heartbeat_task(self):
