@@ -107,6 +107,7 @@ cogs = [
     'modules.utils.embed',
     'modules.setstatus',
     'modules.misc',
+    'modules.metrics',
 ]
 
 logger.info('Loading extensions...')
