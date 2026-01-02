@@ -104,10 +104,17 @@ class MetricsCog(commands.Cog):
                 metrics_json = json.dumps(self.metrics, indent=2)
                 async with aiofiles.open(temp_file, 'w') as f:
                     await f.write(metrics_json)
-
+                    await f.flush()  # Ensure data is written to disk
+                
                 # Atomic rename (safe on POSIX)
                 temp_file.replace(self.metrics_file)
-                logger.info(f"Saved metrics for {len(self.metrics)} guild(s) to {self.metrics_file} ({len(metrics_json)} bytes)")
+                
+                # Verify the file exists and has content
+                if self.metrics_file.exists():
+                    actual_size = self.metrics_file.stat().st_size
+                    logger.info(f"Saved metrics for {len(self.metrics)} guild(s) to {self.metrics_file} ({len(metrics_json)} bytes written, {actual_size} bytes on disk)")
+                else:
+                    logger.error(f"Metrics file does NOT exist after atomic rename!")
             except Exception as e:
                 logger.error(f"Failed to save metrics: {e}", exc_info=True)
 
@@ -141,8 +148,14 @@ class MetricsCog(commands.Cog):
             
             # Save immediately if this is a new guild (first command tracked)
             if is_new_guild:
-                logger.info(f"New guild tracked, saving metrics immediately")
+                logger.info(f"New guild tracked, saving metrics immediately. Metrics dict has {len(self.metrics)} guild(s)")
                 await self._save_metrics()
+                # Verify file was written
+                if self.metrics_file.exists():
+                    file_size = self.metrics_file.stat().st_size
+                    logger.info(f"Metrics file exists after save, size: {file_size} bytes")
+                else:
+                    logger.error(f"Metrics file does NOT exist after save!")
 
     async def increment_error(self, guild_id: int):
         """Increment error counter for a specific guild."""
