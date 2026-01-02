@@ -21,7 +21,7 @@ class MetricsCog(commands.Cog):
         self.bot = bot
         self.embed_service = None
         self.metrics = {}
-        self.metrics_file = Path("config/metrics.json")
+        self.metrics_file = Path("/app/config/metrics.json")
         self.lock = asyncio.Lock()
 
     async def cog_load(self):

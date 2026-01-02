@@ -15,7 +15,7 @@ from . import olerror, olresult
 
 __all__ = ['AsyncHamQTHLookup']
 
-KEY_FILE = 'config/hamqth_key.txt'
+KEY_FILE = '/app/config/hamqth_key.txt'
 
 class AsyncHamQTHLookup:
     def __init__(self, username, password, key_file=KEY_FILE):

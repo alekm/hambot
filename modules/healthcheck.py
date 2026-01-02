@@ -6,7 +6,7 @@ from discord.ext import commands, tasks
 
 logger = logging.getLogger(__name__)
 
-HEALTHCHECK_FILE = Path("config/healthcheck.json")
+HEALTHCHECK_FILE = Path("/app/config/healthcheck.json")
 
 
 class HealthcheckCog(commands.Cog):
