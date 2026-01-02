@@ -47,27 +47,30 @@ class MiscCog(commands.Cog):
     )
     async def help(self, ctx):
         """Shows help message and command list."""
-        await ctx.respond(embed=self.embed_service
-            .generate(
-                title="Help",
-                description=(
-                    '**Core commands**\n'
-                    '\t`/cond`: Solar conditions (Source: hamqsl.com)\n'
-                    '\t`/muf`: Maximum Usable Frequency information (Source: prop.kc2g.com)\n'
-                    '\t`/fof2`: Frequency of F2 Layer (NVIS) information (Source: prop.kc2g.com)\n '
-                    '\t`/drap`: D Region Absorption Prediction map\n'
-                    '\t`/utc`: Time in UTC\n'
-                    '\t`/call [callsign]`: Callsign information (Sources: HamQTH'
-                    ', callook.info)\n'
-                    '\t`/dx [prefix]`: DXCC information about a call prefix\n'
-                    '\t`/study`: Studying for your ham license test\n'
-                    '\t`/testing`: How to take your ham license test\n'
-                    '\t`/hamlive`: Information on using Ham.Live for the HRCC HF Net\n'
-                    '\n\t`/about`: About the bot\n'
-                    '\t`/uptime`: Bot uptime\n'    
-                )
-            ), ephemeral=True
+        embed = self._embed(
+            title="Help",
+            description=(
+                '**Core commands**\n'
+                '\t`/cond`: Solar conditions (Source: hamqsl.com)\n'
+                '\t`/muf`: Maximum Usable Frequency information (Source: prop.kc2g.com)\n'
+                '\t`/fof2`: Frequency of F2 Layer (NVIS) information (Source: prop.kc2g.com)\n '
+                '\t`/drap`: D Region Absorption Prediction map\n'
+                '\t`/utc`: Time in UTC\n'
+                '\t`/call [callsign]`: Callsign information (Sources: HamQTH'
+                ', callook.info)\n'
+                '\t`/dx [prefix]`: DXCC information about a call prefix\n'
+                '\t`/study`: Studying for your ham license test\n'
+                '\t`/testing`: How to take your ham license test\n'
+                '\t`/hamlive`: Information on using Ham.Live for the HRCC HF Net\n'
+                '\n\t`/about`: About the bot\n'
+                '\t`/uptime`: Bot uptime\n'
+                '\n**Alert commands** (requires database)\n'
+                '\t`/addalert [callsign] [modes]`: Add a spot alert\n'
+                '\t`/removealert [id]`: Remove an alert\n'
+                '\t`/listalerts`: List your active alerts\n'
+            )
         )
+        await ctx.respond(embed=embed, ephemeral=True)
 
     @slash_command(
         name="about",
@@ -201,7 +204,9 @@ class MiscCog(commands.Cog):
             return self.embed_service.generate(title=title, description=description)
         # Fallback simple embed if embed service not loaded
         import discord
-        color = getattr(self.bot.config, "embedcolor", discord.Color.blue())
+        color = self.bot.config.get("embedcolor", 0x31a896)
+        if isinstance(color, str):
+            color = int(color, 16) if color.startswith("0x") else int(color)
         embed = discord.Embed(title=title, description=description, color=color)
         return embed
 
