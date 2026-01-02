@@ -84,16 +84,46 @@ class LookupCog(commands.Cog):
     async def drap(self, ctx):
         await ctx.trigger_typing()
         fname = "d-rap.png"
-        url = 'https://services.swpc.noaa.gov/images/animations/d-rap/global_f05/d-rap/latest.png'
+        # Try multiple possible URL patterns as NOAA may have changed their structure
+        urls = [
+            'https://services.swpc.noaa.gov/images/animations/d-rap/global_f05/d-rap/latest.png',
+            'https://services.swpc.noaa.gov/images/d-rap/latest.png',
+            'https://services.swpc.noaa.gov/images/animations/d-rap/latest.png',
+        ]
+        
         try:
             if os.path.isfile(fname):
                 os.remove(fname)
+            
             async with aiohttp.ClientSession() as session:
-                async with session.get(url) as resp:
-                    if resp.status != 200:
-                        await ctx.respond(f"Failed to fetch DRAP map: {resp.status}", ephemeral=True)
-                        return
-                    data = await resp.read()
+                data = None
+                last_error = None
+                
+                for url in urls:
+                    try:
+                        async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                            if resp.status == 200:
+                                data = await resp.read()
+                                logger.info(f"Successfully fetched DRAP map from {url}")
+                                break
+                            else:
+                                logger.debug(f"DRAP URL {url} returned status {resp.status}")
+                                last_error = f"HTTP {resp.status}"
+                    except Exception as e:
+                        logger.debug(f"DRAP URL {url} failed: {e}")
+                        last_error = str(e)
+                        continue
+                
+                if data is None:
+                    error_msg = (
+                        f"Failed to fetch DRAP map from NOAA SWPC.\n"
+                        f"All URL attempts failed. Last error: {last_error}\n"
+                        f"The service may be temporarily unavailable or the URL structure may have changed.\n"
+                        f"Please check https://www.swpc.noaa.gov/ for current availability."
+                    )
+                    await ctx.respond(error_msg, ephemeral=True)
+                    return
+                
             async with aiofiles.open(fname, 'wb') as f:
                 await f.write(data)
             embed = discord.Embed(
@@ -107,6 +137,7 @@ class LookupCog(commands.Cog):
                 file = discord.File(f.name, fname)
                 await ctx.respond(embed=embed, file=file)
         except Exception as ex:
+            logger.error(f"DRAP command error: {ex}", exc_info=True)
             await ctx.respond(f"Failed to fetch DRAP map: {ex}", ephemeral=True)
 
     @slash_command(name="fof2", description="Frequency of F2 Layer Map")
