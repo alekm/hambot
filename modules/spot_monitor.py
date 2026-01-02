@@ -130,8 +130,21 @@ class SpotMonitorCog(commands.Cog):
         matches = []
         for spot in spots:
             for alert in alerts:
-                # Check if callsign matches
-                if spot.callsign.upper() == alert['callsign_or_prefix'].upper():
+                alert_pattern = alert['callsign_or_prefix'].upper()
+                spot_callsign = spot.callsign.upper()
+                
+                # Check if callsign matches (exact match or prefix match)
+                # Exact match: "N4OG" == "N4OG"
+                # Prefix match: "N4OG" starts with "N4"
+                is_match = False
+                if spot_callsign == alert_pattern:
+                    # Exact match
+                    is_match = True
+                elif len(alert_pattern) <= 4 and spot_callsign.startswith(alert_pattern):
+                    # Prefix match (only for short patterns, likely prefixes)
+                    is_match = True
+                
+                if is_match:
                     # Check if mode matches
                     if spot.mode.upper() in [m.upper() for m in alert['modes']]:
                         # Check if we've already sent this spot

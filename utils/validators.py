@@ -22,25 +22,40 @@ VOICE_MODES: Set[str] = {
 
 def validate_callsign(callsign: str) -> bool:
     """
-    Validate a callsign format.
+    Validate a callsign or prefix format.
+    Supports both full callsigns (e.g., "N4OG") and prefixes (e.g., "N4", "W1").
     
     Args:
-        callsign: Callsign to validate
+        callsign: Callsign or prefix to validate
         
     Returns:
         True if valid, False otherwise
     """
-    if not callsign or len(callsign) < 3 or len(callsign) > 15:
+    if not callsign:
         return False
     
     # Normalize to uppercase
     callsign = callsign.upper().strip()
     
-    # Basic pattern check
-    if not CALLSIGN_PATTERN.match(callsign):
+    # Check length (prefixes can be as short as 1 character, full callsigns up to 15)
+    if len(callsign) < 1 or len(callsign) > 15:
         return False
     
-    return True
+    # Allow simple prefix patterns (1-3 letters/numbers, optionally followed by a digit)
+    # Examples: "N4", "W1", "K", "VE", "G", "F", etc.
+    PREFIX_PATTERN = re.compile(r'^[A-Z0-9]{1,4}$', re.IGNORECASE)
+    
+    # Check if it's a valid prefix (shorter, simpler pattern)
+    if len(callsign) <= 4:
+        if PREFIX_PATTERN.match(callsign):
+            return True
+    
+    # Check if it's a full callsign (longer, more complex pattern)
+    if len(callsign) >= 3:
+        if CALLSIGN_PATTERN.match(callsign):
+            return True
+    
+    return False
 
 
 def validate_modes(modes: List[str], data_source: str) -> tuple[bool, str]:
