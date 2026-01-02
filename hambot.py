@@ -44,6 +44,12 @@ async def on_ready():
 
     # Start reporter
     await reporter.start()
+    
+    # Ensure healthcheck starts (fallback if cog_load wasn't called)
+    healthcheck_cog = bot.get_cog('HealthcheckCog')
+    if healthcheck_cog:
+        healthcheck_cog.start_heartbeat()
+        logger.info("Healthcheck heartbeat started from on_ready")
 
 
 @bot.event

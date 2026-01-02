@@ -17,14 +17,26 @@ class HealthcheckCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self._task_started = False
         logger.info("HealthcheckCog __init__ called")
 
     async def cog_load(self):
         """Start heartbeat task when cog loads."""
         logger.info("HealthcheckCog cog_load() called")
+        await self.start_heartbeat()
+
+    def start_heartbeat(self):
+        """Start the heartbeat task (can be called from on_ready as fallback)."""
+        if self._task_started:
+            logger.info("Healthcheck heartbeat task already started")
+            return
         try:
-            self._heartbeat_task.start()
-            logger.info("Healthcheck heartbeat task started successfully")
+            if not self._heartbeat_task.is_running():
+                self._heartbeat_task.start()
+                self._task_started = True
+                logger.info("Healthcheck heartbeat task started successfully")
+            else:
+                logger.info("Healthcheck heartbeat task already running")
         except Exception as e:
             logger.error(f"Failed to start healthcheck heartbeat task: {e}", exc_info=True)
 
