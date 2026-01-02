@@ -150,6 +150,11 @@ class MetricsCog(commands.Cog):
         """Track all slash command usage automatically."""
         guild_id = ctx.guild.id if ctx.guild else None
         command_name = ctx.command.name if ctx.command else "unknown"
+
+        # Don't track the metrics command itself
+        if command_name == "metrics":
+            return
+
         await self.increment_command(guild_id, command_name)
 
     @commands.Cog.listener()

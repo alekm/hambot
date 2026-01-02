@@ -49,7 +49,7 @@ async def on_ready():
 @bot.event
 async def on_application_command(ctx):
     """Track slash command usage for reporting."""
-    if ctx.command:
+    if ctx.command and ctx.command.name != "metrics":
         reporter.record_command(ctx.command.name)
 
 
