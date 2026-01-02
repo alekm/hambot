@@ -131,6 +131,7 @@ class MetricsCog(commands.Cog):
             return  # Skip DMs
 
         guild_key = str(guild_id)
+        is_new_guild = False
         async with self.lock:
             is_new_guild = guild_key not in self.metrics
             if is_new_guild:
@@ -145,17 +146,18 @@ class MetricsCog(commands.Cog):
             guild_metrics["commands"][command_name] = guild_metrics["commands"].get(command_name, 0) + 1
             guild_metrics["total"] += 1
             logger.info(f"Incremented command {command_name} for guild {guild_id}. Total: {guild_metrics['total']}")
-            
-            # Save immediately if this is a new guild (first command tracked)
-            if is_new_guild:
-                logger.info(f"New guild tracked, saving metrics immediately. Metrics dict has {len(self.metrics)} guild(s)")
-                await self._save_metrics()
-                # Verify file was written
-                if self.metrics_file.exists():
-                    file_size = self.metrics_file.stat().st_size
-                    logger.info(f"Metrics file exists after save, size: {file_size} bytes")
-                else:
-                    logger.error(f"Metrics file does NOT exist after save!")
+        
+        # Save immediately if this is a new guild (first command tracked)
+        # Do this OUTSIDE the lock to avoid deadlock since _save_metrics() also acquires the lock
+        if is_new_guild:
+            logger.info(f"New guild tracked, saving metrics immediately. Metrics dict has {len(self.metrics)} guild(s)")
+            await self._save_metrics()
+            # Verify file was written
+            if self.metrics_file.exists():
+                file_size = self.metrics_file.stat().st_size
+                logger.info(f"Metrics file exists after save, size: {file_size} bytes")
+            else:
+                logger.error(f"Metrics file does NOT exist after save!")
 
     async def increment_error(self, guild_id: int):
         """Increment error counter for a specific guild."""
