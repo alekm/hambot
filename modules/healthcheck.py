@@ -18,25 +18,19 @@ class HealthcheckCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self._task_started = False
-        logger.info("HealthcheckCog __init__ called")
 
     async def cog_load(self):
         """Start heartbeat task when cog loads."""
-        logger.info("HealthcheckCog cog_load() called")
         self.start_heartbeat()
 
     def start_heartbeat(self):
         """Start the heartbeat task (can be called from on_ready as fallback)."""
         if self._task_started:
-            logger.info("Healthcheck heartbeat task already started")
             return
         try:
             if not self._heartbeat_task.is_running():
                 self._heartbeat_task.start()
                 self._task_started = True
-                logger.info("Healthcheck heartbeat task started successfully")
-            else:
-                logger.info("Healthcheck heartbeat task already running")
         except Exception as e:
             logger.error(f"Failed to start healthcheck heartbeat task: {e}", exc_info=True)
 
@@ -51,7 +45,6 @@ class HealthcheckCog(commands.Cog):
         try:
             # Ensure config directory exists
             HEALTHCHECK_FILE.parent.mkdir(parents=True, exist_ok=True)
-            logger.info(f"Writing healthcheck to {HEALTHCHECK_FILE}")
 
             # Prepare healthcheck data
             status = {
@@ -66,21 +59,13 @@ class HealthcheckCog(commands.Cog):
             with open(temp_file, 'w') as f:
                 json.dump(status, f)
             temp_file.replace(HEALTHCHECK_FILE)
-
-            logger.info(
-                f"Heartbeat written: {status['status']}, "
-                f"guilds={status['guilds']}, "
-                f"latency={status['latency']}ms"
-            )
         except Exception as e:
             logger.error(f"Failed to write healthcheck heartbeat: {e}", exc_info=True)
 
     @_heartbeat_task.before_loop
     async def before_heartbeat(self):
         """Wait for bot to be ready before starting heartbeat."""
-        logger.info("Healthcheck task before_loop: waiting for bot to be ready")
         await self.bot.wait_until_ready()
-        logger.info("Healthcheck task before_loop: bot is ready, starting heartbeat loop")
 
 
 def setup(bot):

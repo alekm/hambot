@@ -49,13 +49,11 @@ async def on_ready():
     healthcheck_cog = bot.get_cog('HealthcheckCog')
     if healthcheck_cog:
         healthcheck_cog.start_heartbeat()
-        logger.info("Healthcheck heartbeat started from on_ready")
     
     # Ensure metrics autosave starts (fallback if cog_load wasn't called)
     metrics_cog = bot.get_cog('MetricsCog')
     if metrics_cog:
         await metrics_cog.start_autosave()
-        logger.info("Metrics autosave started from on_ready")
 
 
 @bot.event

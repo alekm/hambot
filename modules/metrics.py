@@ -32,7 +32,6 @@ class MetricsCog(commands.Cog):
     async def start_autosave(self):
         """Start the autosave task (can be called from on_ready as fallback)."""
         if self._autosave_started:
-            logger.info("Metrics autosave task already started")
             return
         
         # Get embed service
@@ -48,9 +47,8 @@ class MetricsCog(commands.Cog):
             if not self._autosave_task.is_running():
                 self._autosave_task.start()
                 self._autosave_started = True
-                logger.info("MetricsCog autosave task started successfully")
             else:
-                logger.info("Metrics autosave task already running")
+                self._autosave_started = True
         except Exception as e:
             logger.error(f"Failed to start metrics autosave task: {e}", exc_info=True)
 
@@ -97,7 +95,6 @@ class MetricsCog(commands.Cog):
             try:
                 # Ensure config directory exists
                 self.metrics_file.parent.mkdir(parents=True, exist_ok=True)
-                logger.info(f"Saving metrics to {self.metrics_file} (guilds: {len(self.metrics)})")
 
                 # Write to temp file first, then atomic rename
                 temp_file = self.metrics_file.with_suffix('.json.tmp')
@@ -108,20 +105,12 @@ class MetricsCog(commands.Cog):
                 
                 # Atomic rename (safe on POSIX)
                 temp_file.replace(self.metrics_file)
-                
-                # Verify the file exists and has content
-                if self.metrics_file.exists():
-                    actual_size = self.metrics_file.stat().st_size
-                    logger.info(f"Saved metrics for {len(self.metrics)} guild(s) to {self.metrics_file} ({len(metrics_json)} bytes written, {actual_size} bytes on disk)")
-                else:
-                    logger.error(f"Metrics file does NOT exist after atomic rename!")
             except Exception as e:
                 logger.error(f"Failed to save metrics: {e}", exc_info=True)
 
     @tasks.loop(minutes=5)
     async def _autosave_task(self):
         """Autosave metrics every 5 minutes."""
-        logger.info(f"Autosave: saving metrics for {len(self.metrics)} guild(s)")
         await self._save_metrics()
 
     async def increment_command(self, guild_id: int, command_name: str):
@@ -145,19 +134,11 @@ class MetricsCog(commands.Cog):
             guild_metrics = self.metrics[guild_key]
             guild_metrics["commands"][command_name] = guild_metrics["commands"].get(command_name, 0) + 1
             guild_metrics["total"] += 1
-            logger.info(f"Incremented command {command_name} for guild {guild_id}. Total: {guild_metrics['total']}")
         
         # Save immediately if this is a new guild (first command tracked)
         # Do this OUTSIDE the lock to avoid deadlock since _save_metrics() also acquires the lock
         if is_new_guild:
-            logger.info(f"New guild tracked, saving metrics immediately. Metrics dict has {len(self.metrics)} guild(s)")
             await self._save_metrics()
-            # Verify file was written
-            if self.metrics_file.exists():
-                file_size = self.metrics_file.stat().st_size
-                logger.info(f"Metrics file exists after save, size: {file_size} bytes")
-            else:
-                logger.error(f"Metrics file does NOT exist after save!")
 
     async def increment_error(self, guild_id: int):
         """Increment error counter for a specific guild."""
@@ -189,16 +170,13 @@ class MetricsCog(commands.Cog):
     @commands.Cog.listener()
     async def on_application_command(self, ctx):
         """Track all slash command usage automatically."""
-        logger.info(f"MetricsCog.on_application_command called for command: {ctx.command.name if ctx.command else 'unknown'}")
         guild_id = ctx.guild.id if ctx.guild else None
         command_name = ctx.command.name if ctx.command else "unknown"
 
         # Don't track the metrics command itself
         if command_name == "metrics":
-            logger.info("Skipping metrics command tracking")
             return
 
-        logger.info(f"Tracking command: {command_name} in guild: {guild_id}")
         await self.increment_command(guild_id, command_name)
 
     @commands.Cog.listener()
