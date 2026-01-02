@@ -8,6 +8,11 @@ muf.svg
 muf.jpg
 CLAUDE.md
 
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
 # Healthcheck files
 config/healthcheck.json
 config/healthcheck.json.tmp
