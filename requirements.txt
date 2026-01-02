@@ -4,3 +4,4 @@ ctyparser
 common
 aiohttp>=3.8
 aiofiles
+psutil>=5.9.0
