@@ -109,6 +109,7 @@ class BotReporter:
             "version": getattr(self.bot, "version", "unknown"),
             "uptime": uptime,
             "serverCount": len(self.bot.guilds),
+            "timestamp": int(datetime.now().timestamp()),  # Unix timestamp for server to use
         }
 
         result = await self._make_request("heartbeat", data)
