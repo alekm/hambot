@@ -108,6 +108,7 @@ cogs = [
     'modules.setstatus',
     'modules.misc',
     'modules.metrics',
+    'modules.healthcheck',
 ]
 
 logger.info('Loading extensions...')

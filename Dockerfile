@@ -11,8 +11,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends librsvg2-bin \
 
 COPY . .
 
+# Make healthcheck script executable
+RUN chmod +x healthcheck.sh
+
 # Optional: Create a non-root user for extra security
 #RUN useradd -ms /bin/bash hambotuser
 #USER hambotuser
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD ["/app/healthcheck.sh"]
 
 CMD [ "python", "./hambot.py" ]

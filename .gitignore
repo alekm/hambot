@@ -6,3 +6,8 @@ config.json
 hamqth_key.txt
 muf.svg
 muf.jpg
+CLAUDE.md
+
+# Healthcheck files
+config/healthcheck.json
+config/healthcheck.json.tmp
