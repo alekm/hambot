@@ -185,6 +185,13 @@ def load_config_from_env():
     enabled_sources_str = os.getenv('ENABLED_DATA_SOURCES', 'pskreporter')
     config['enabled_data_sources'] = [s.strip().lower() for s in enabled_sources_str.split(',') if s.strip()]
     
+    # DX Cluster configuration (optional)
+    # Default: dxmaps.com:7300 (known working public server)
+    # Note: Some servers may require registration or have access restrictions
+    config['dxcluster_host'] = os.getenv('DXCLUSTER_HOST', 'dxmaps.com')
+    config['dxcluster_port'] = int(os.getenv('DXCLUSTER_PORT', '7300'))
+    config['dxcluster_callsign'] = os.getenv('DXCLUSTER_CALLSIGN')  # Optional
+    
     logger.info('Configuration loaded from environment variables.')
     return config
 
@@ -218,6 +225,7 @@ cogs = [
     'modules.alerts',
     'modules.spot_monitor',
     'modules.expiration_service',
+    'modules.dxspots',
 ]
 
 logger.info('Loading extensions...')

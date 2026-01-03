@@ -2,9 +2,11 @@
 Spot monitor cog - monitors spot sources and sends alerts.
 """
 import logging
+import discord
 from datetime import datetime, timedelta
 from discord.ext import commands, tasks
 from providers.pskreporter import PSKReporterProvider
+from providers.dxcluster import DXClusterProvider
 from providers.base import BaseSpotProvider
 from database.models import (
     get_active_alerts_by_source, record_spot_sent, check_spot_sent, create_user,
@@ -42,7 +44,19 @@ class SpotMonitorCog(commands.Cog):
         if 'pskreporter' in self.enabled_sources:
             self.providers['pskreporter'] = PSKReporterProvider()
             logger.info("PSKReporter provider initialized")
-        # Future: Add other providers here
+        
+        if 'dxcluster' in self.enabled_sources:
+            # Get DX Cluster configuration
+            dx_host = self.bot.config.get('dxcluster_host', 'dxc.w1hkj.com')
+            dx_port = self.bot.config.get('dxcluster_port', 8000)
+            dx_callsign = self.bot.config.get('dxcluster_callsign')
+            
+            self.providers['dxcluster'] = DXClusterProvider(
+                host=dx_host,
+                port=dx_port,
+                callsign=dx_callsign
+            )
+            logger.info(f"DX Cluster provider initialized (host: {dx_host}:{dx_port})")
     
     async def cog_load(self):
         """Called when the cog is loaded."""
@@ -57,6 +71,10 @@ class SpotMonitorCog(commands.Cog):
                 connected = await provider.test_connection()
                 if connected:
                     logger.info(f"{source} provider connection test passed")
+                    # For DX Cluster, ensure connection is maintained
+                    if source == 'dxcluster' and hasattr(provider, 'connect'):
+                        # Connection is already established in test_connection
+                        logger.info(f"{source} provider connection established and maintained")
                 else:
                     logger.warning(f"{source} provider connection test failed")
             except Exception as e:
