@@ -59,7 +59,14 @@ class DXSpotsCog(commands.Cog):
             
             line = f"**{spot.callsign}** on {spot.mode} @ {freq_str}{spotter_str} ({time_str})"
             if spot.additional_data and 'comment' in spot.additional_data:
-                line += f" - {spot.additional_data['comment']}"
+                comment = spot.additional_data['comment']
+                # Remove timestamp patterns (e.g., "0620Z") from comment since we already show timestamp
+                import re
+                comment = re.sub(r'\b\d{4}Z\b', '', comment).strip()
+                # Clean up extra spaces and dashes
+                comment = re.sub(r'\s+', ' ', comment).strip()
+                if comment and not comment.startswith('-'):
+                    line += f" - {comment}"
             lines.append(line)
         
         embed.description = "\n".join(lines)
