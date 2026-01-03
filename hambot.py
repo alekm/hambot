@@ -76,6 +76,32 @@ async def on_ready():
     metrics_cog = bot.get_cog('MetricsCog')
     if metrics_cog:
         await metrics_cog.start_autosave()
+    
+    # Ensure spot monitoring starts after database is ready
+    spot_monitor_cog = bot.get_cog('SpotMonitorCog')
+    if spot_monitor_cog and 'database_url' in config:
+        # Check if task is already running
+        if hasattr(spot_monitor_cog, 'monitor_task') and not spot_monitor_cog.monitor_task.is_running():
+            try:
+                # Re-check database availability now that it's initialized
+                if spot_monitor_cog._check_database():
+                    # Test provider connections
+                    for source, provider in spot_monitor_cog.providers.items():
+                        try:
+                            connected = await provider.test_connection()
+                            if connected:
+                                logger.info(f"{source} provider connection test passed")
+                            else:
+                                logger.warning(f"{source} provider connection test failed")
+                        except Exception as e:
+                            logger.error(f"Error testing {source} provider connection: {e}")
+                    
+                    # Start monitoring task
+                    spot_monitor_cog.monitor_task.change_interval(minutes=spot_monitor_cog.poll_interval)
+                    spot_monitor_cog.monitor_task.start()
+                    logger.info(f"Spot monitoring task started (interval: {spot_monitor_cog.poll_interval} minutes)")
+            except Exception as e:
+                logger.error(f"Failed to start spot monitoring task: {e}", exc_info=True)
 
 
 @bot.event
