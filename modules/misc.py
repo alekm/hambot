@@ -70,6 +70,7 @@ class MiscCog(commands.Cog):
                      '\t`/listalerts`: List your active alerts\n'
                      '\n**DX Spot commands**\n'
                      '\t`/dxspots [filter]`: Show recent DX spots from DX Cluster\n'
+                     '\n📖 For detailed command information, visit: https://hambot.net/commands'
             )
         )
         await ctx.respond(embed=embed, ephemeral=True)
