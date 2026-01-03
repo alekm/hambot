@@ -6,6 +6,7 @@ Uses exam.tools API to retrieve information on US callsigns.
 """
 
 import aiohttp
+from typing import Optional
 from . import olerror, olresult
 
 __all__ = ['AsyncExamToolsLookup']
@@ -13,7 +14,27 @@ __all__ = ['AsyncExamToolsLookup']
 class AsyncExamToolsLookup:
     """
     Looks up US callsign info using the exam.tools API asynchronously.
+    Reuses HTTP session for better performance.
     """
+    def __init__(self):
+        self.session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create HTTP session with granular timeouts."""
+        if self.session is None or self.session.closed:
+            timeout = aiohttp.ClientTimeout(
+                total=15,      # Total timeout
+                connect=5,     # Connection timeout
+                sock_read=10   # Socket read timeout
+            )
+            self.session = aiohttp.ClientSession(timeout=timeout)
+        return self.session
+
+    async def close(self):
+        """Close the HTTP session."""
+        if self.session and not self.session.closed:
+            await self.session.close()
+
     async def lookup(self, call):
         """
         Async lookup for a US callsign using exam.tools.
@@ -26,11 +47,11 @@ class AsyncExamToolsLookup:
         url = f'https://exam.tools/api/uls/individual/{call}'
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url) as resp:
-                    if resp.status != 200:
-                        raise olerror.LookupResultError(f'ExamTools: HTTP {resp.status}')
-                    data = await resp.json()
+            session = await self._get_session()
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    raise olerror.LookupResultError(f'ExamTools: HTTP {resp.status}')
+                data = await resp.json()
         except Exception as ex:
             raise olerror.LookupResultError(f'ExamTools network/parse error: {ex}')
 

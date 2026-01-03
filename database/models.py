@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 import asyncpg
 from database.connection import get_pool
+from utils.logging_utils import sanitize_exception
 
 logger = logging.getLogger(__name__)
 
@@ -173,10 +174,10 @@ async def create_schema():
         except Exception as e:
             if attempt < max_retries - 1:
                 wait_time = (attempt + 1) * 2  # Exponential backoff: 2s, 4s, 6s
-                logger.warning(f"Schema creation attempt {attempt + 1} failed: {e}. Retrying in {wait_time}s...")
+                logger.warning(f"Schema creation attempt {attempt + 1} failed: {sanitize_exception(e)}. Retrying in {wait_time}s...")
                 await asyncio.sleep(wait_time)
             else:
-                logger.error(f"Failed to create schema after {max_retries} attempts: {e}")
+                logger.error(f"Failed to create schema after {max_retries} attempts: {sanitize_exception(e)}")
                 raise
 
 

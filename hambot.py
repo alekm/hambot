@@ -7,6 +7,7 @@ import discord
 from reporter import BotReporter
 from database.connection import init_pool, close_pool
 from database.models import create_schema
+from utils.logging_utils import sanitize_exception
 
 # =======================
 # Logging Setup
@@ -60,7 +61,7 @@ async def on_ready():
             else:
                 logger.info("Database pool already initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize database in on_ready: {e}", exc_info=True)
+            logger.error(f"Failed to initialize database in on_ready: {sanitize_exception(e)}")
     else:
         logger.info("Database not configured - alert features will be disabled")
 
@@ -107,7 +108,7 @@ async def on_ready():
                         spot_monitor_cog.message_cleanup_task.start()
                         logger.info("Message cleanup task started (runs every 10 minutes)")
             except Exception as e:
-                logger.error(f"Failed to start spot monitoring task: {e}", exc_info=True)
+                logger.error(f"Failed to start spot monitoring task: {sanitize_exception(e)}")
 
 
 @bot.event

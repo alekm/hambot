@@ -13,6 +13,7 @@ import aiohttp
 import asyncio
 import base64
 import logging
+from typing import Optional
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -37,6 +38,19 @@ class AsyncHamQTHLookup:
         self.key_file = key_file
         self.salt_file = SALT_FILE
         self._cipher = None
+        self.session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create HTTP session with granular timeouts."""
+        if self.session is None or self.session.closed:
+            timeout = aiohttp.ClientTimeout(total=15, connect=5, sock_read=10)
+            self.session = aiohttp.ClientSession(timeout=timeout)
+        return self.session
+
+    async def close(self):
+        """Close the HTTP session."""
+        if self.session and not self.session.closed:
+            await self.session.close()
 
     def _get_encryption_key(self) -> bytes:
         """
@@ -110,9 +124,8 @@ class AsyncHamQTHLookup:
         Session key is encrypted before storage.
         """
         url = f'https://www.hamqth.com/xml.php?u={self.username}&p={self.password}'
-        timeout = aiohttp.ClientTimeout(total=15, connect=5, sock_read=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url) as resp:
+        session = await self._get_session()
+        async with session.get(url) as resp:
                 if resp.status != 200:
                     raise olerror.LookupVerificationError(f'HamQTH: HTTP {resp.status}')
                 text = await resp.text()
@@ -144,9 +157,8 @@ class AsyncHamQTHLookup:
             raise olerror.LookupActiveError('HamQTH')
 
         url = f'https://www.hamqth.com/xml.php?id={self.key}&callsign={call}&prg=hambot'
-        timeout = aiohttp.ClientTimeout(total=15, connect=5, sock_read=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url) as resp:
+        session = await self._get_session()
+        async with session.get(url) as resp:
                 if resp.status != 200:
                     raise olerror.LookupResultError(f'HamQTH: HTTP {resp.status}')
                 text = await resp.text()

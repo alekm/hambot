@@ -19,6 +19,7 @@ from typing import Dict, Optional
 import aiohttp
 import discord
 from discord.ext import commands, tasks
+from utils.logging_utils import sanitize_exception
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ class BotReporter:
             logger.error(f"Timeout reporting to {endpoint}")
             return None
         except Exception as e:
-            logger.error(f"Error reporting to {endpoint}: {e}")
+            logger.error(f"Error reporting to {endpoint}: {sanitize_exception(e)}")
             return None
 
     async def send_heartbeat(self):
@@ -135,7 +136,7 @@ class BotReporter:
                     logger.debug(f"Heartbeat written to database")
                     return
             except Exception as e:
-                logger.warning(f"Failed to write heartbeat to database: {e}, falling back to API")
+                logger.warning(f"Failed to write heartbeat to database: {sanitize_exception(e)}, falling back to API")
         
         # Fall back to HTTP API
         if self.use_api:
@@ -183,7 +184,7 @@ class BotReporter:
                     self.command_counts.clear()
                     return
             except Exception as e:
-                logger.warning(f"Failed to write stats to database: {e}, falling back to API")
+                logger.warning(f"Failed to write stats to database: {sanitize_exception(e)}, falling back to API")
         
         # Fall back to HTTP API
         if self.use_api:

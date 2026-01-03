@@ -8,6 +8,7 @@ Refactored for async by N4OG - 2025
 """
 
 import aiohttp
+from typing import Optional
 from . import olerror, olresult
 
 __all__ = ['AsyncCallookLookup']
@@ -26,7 +27,27 @@ def prettify(name: str) -> str:
 class AsyncCallookLookup:
     """
     Provides US callsign lookup via callook.info API (async).
+    Reuses HTTP session for better performance.
     """
+    def __init__(self):
+        self.session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create HTTP session with granular timeouts."""
+        if self.session is None or self.session.closed:
+            timeout = aiohttp.ClientTimeout(
+                total=15,      # Total timeout
+                connect=5,     # Connection timeout
+                sock_read=10   # Socket read timeout
+            )
+            self.session = aiohttp.ClientSession(timeout=timeout)
+        return self.session
+
+    async def close(self):
+        """Close the HTTP session."""
+        if self.session and not self.session.closed:
+            await self.session.close()
+
     async def lookup(self, call: str):
         """
         Async lookup of a US callsign using callook.info.
@@ -38,17 +59,11 @@ class AsyncCallookLookup:
         lr = olresult.LookupResult()
         req = f'https://callook.info/{call}/json'
         try:
-            # Add granular timeouts to prevent hangs
-            timeout = aiohttp.ClientTimeout(
-                total=15,      # Total timeout
-                connect=5,     # Connection timeout
-                sock_read=10   # Socket read timeout
-            )
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(req) as resp:
-                    if resp.status != 200:
-                        raise olerror.LookupResultError(f'Callook: HTTP {resp.status}')
-                    data = await resp.json()
+            session = await self._get_session()
+            async with session.get(req) as resp:
+                if resp.status != 200:
+                    raise olerror.LookupResultError(f'Callook: HTTP {resp.status}')
+                data = await resp.json()
         except Exception as ex:
             raise olerror.LookupResultError(f'Callook network/parse error: {ex}')
 

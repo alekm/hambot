@@ -5,6 +5,7 @@ import os
 import asyncpg
 import logging
 from typing import Optional
+from utils.logging_utils import sanitize_exception
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ async def init_pool(database_url: str, min_size: int = None, max_size: int = Non
         )
         logger.info(f"Database connection pool initialized (min={min_size}, max={max_size})")
     except Exception as e:
-        logger.error(f"Failed to initialize database pool: {e}")
+        logger.error(f"Failed to initialize database pool: {sanitize_exception(e)}")
         raise
 
 
