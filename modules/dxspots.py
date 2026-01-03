@@ -104,7 +104,7 @@ class DXSpotsCog(commands.Cog):
             )
             return
         
-        await ctx.defer()
+        await ctx.defer(ephemeral=True)
         
         try:
             # Get recent spots from provider
@@ -173,7 +173,7 @@ class DXSpotsCog(commands.Cog):
                 return
             
             embed = self._format_spot_embed(filtered_spots, title)
-            await ctx.respond(embed=embed)
+            await ctx.followup.send(embed=embed, ephemeral=True)
             
         except Exception as e:
             logger.error(f"Error in dxspots command: {e}", exc_info=True)
