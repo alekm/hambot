@@ -9,7 +9,7 @@ from providers.base import BaseSpotProvider, Spot
 
 logger = logging.getLogger(__name__)
 
-PSKREPORTER_API_URL = "https://api.pskreporter.info/pskreporter/query"
+PSKREPORTER_API_URL = "https://retrieve.pskreporter.info/query"
 
 
 class PSKReporterProvider(BaseSpotProvider):
