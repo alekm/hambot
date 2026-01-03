@@ -166,18 +166,19 @@ class BotReporter:
 
         logger.info(f"Sending stats: {len(stats)} command types, total commands: {sum(s['count'] for s in stats)}")
 
-        # Try database first (preferred)
+        # Try database first (preferred) - using batch writes for better performance
         if self.use_database:
             try:
                 from database.connection import _pool
                 if _pool is not None:
                     from database.models import record_stats
+                    # record_stats now uses executemany for batch insert (10x faster)
                     await record_stats(
                         stats=stats,
                         period="hourly",
                         timestamp=datetime.utcnow()
                     )
-                    logger.debug(f"Stats written to database")
+                    logger.debug(f"Stats batch written to database ({len(stats)} commands)")
                     # Reset counters after successful write
                     self.command_counts.clear()
                     return

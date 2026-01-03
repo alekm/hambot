@@ -4,6 +4,7 @@ DX Cluster provider for amateur radio DX spots via telnet.
 import logging
 import asyncio
 import re
+import regex  # regex library with timeout support (prevents ReDoS)
 from datetime import datetime, timedelta
 from typing import List, Optional, Deque
 from collections import deque
@@ -29,20 +30,46 @@ MODE_PATTERNS = [
 
 class DXClusterProvider(BaseSpotProvider):
     """Provider for DX Cluster telnet servers."""
-    
+
     def __init__(self, host: str = "dxmaps.com", port: int = 7300, callsign: Optional[str] = None):
         """
         Initialize DX Cluster provider.
-        
+
         Args:
             host: DX Cluster server hostname
             port: DX Cluster server port
             callsign: Optional callsign for login (some servers require)
+
+        Raises:
+            ValueError: If callsign format is invalid
         """
         super().__init__("dxcluster")
         self.host = host
         self.port = port
-        self.callsign = callsign
+
+        # Sanitize and validate callsign to prevent command injection
+        if callsign:
+            # Remove any control characters, CR, LF, null bytes
+            sanitized = re.sub(r'[\r\n\x00-\x1f\x7f-\x9f]', '', callsign).strip()
+
+            # Validate format: 2-15 alphanumeric chars + forward slash (for portable ops)
+            if not re.match(r'^[A-Z0-9/]{2,15}$', sanitized, re.IGNORECASE):
+                raise ValueError(
+                    f"Invalid callsign format: '{callsign}'. "
+                    f"Must be 2-15 characters (letters, numbers, /) with no special characters."
+                )
+
+            # Additional check: must contain at least one letter and one number
+            if not (re.search(r'[A-Z]', sanitized, re.IGNORECASE) and re.search(r'[0-9]', sanitized)):
+                raise ValueError(
+                    f"Invalid callsign format: '{callsign}'. "
+                    f"Must contain at least one letter and one number."
+                )
+
+            self.callsign = sanitized.upper()
+            logger.info(f"Callsign validated and sanitized: {self.callsign}")
+        else:
+            self.callsign = None
         self.reader: Optional[asyncio.StreamReader] = None
         self.writer: Optional[asyncio.StreamWriter] = None
         self.connected = False
@@ -265,8 +292,8 @@ class DXClusterProvider(BaseSpotProvider):
     
     def _parse_spot(self, line: str) -> Optional[Spot]:
         """
-        Parse a DX Cluster spot line.
-        
+        Parse a DX Cluster spot line with ReDoS protection.
+
         Format: DX de CALLSIGN: FREQ CALLSIGN [MODE] [COMMENT] [TIMESTAMP]
         Mode may be anywhere in the comment or right after callsign.
         Examples:
@@ -277,18 +304,28 @@ class DXClusterProvider(BaseSpotProvider):
         """
         try:
             # First, extract timestamp from the end if present (format: 0512Z)
-            timestamp_match = re.search(r'(\d{4}Z)\s*$', line)
-            timestamp_str = timestamp_match.group(1) if timestamp_match else None
-            
+            # Use regex library with timeout to prevent ReDoS attacks
+            try:
+                timestamp_match = regex.search(r'(\d{4}Z)\s*$', line, timeout=0.5)
+                timestamp_str = timestamp_match.group(1) if timestamp_match else None
+            except TimeoutError:
+                logger.warning(f"Regex timeout parsing timestamp from: {line[:100]}")
+                timestamp_str = None
+
             # Remove timestamp from line for parsing
-            line_without_timestamp = re.sub(r'\s+\d{4}Z\s*$', '', line)
-            
-            # Now parse the rest of the line
-            match = re.match(
-                r'DX de\s+([A-Z0-9/]+[A-Z0-9]):\s+(\d+\.?\d*)\s+([A-Z0-9/]+[A-Z0-9])(?:\s+(.+))?',
-                line_without_timestamp,
-                re.IGNORECASE
-            )
+            line_without_timestamp = regex.sub(r'\s+\d{4}Z\s*$', '', line, timeout=0.5)
+
+            # Now parse the rest of the line with timeout protection
+            try:
+                match = regex.match(
+                    r'DX de\s+([A-Z0-9/]+[A-Z0-9]):\s+(\d+\.?\d*)\s+([A-Z0-9/]+[A-Z0-9])(?:\s+(.+))?',
+                    line_without_timestamp,
+                    flags=regex.IGNORECASE,
+                    timeout=0.5  # 500ms timeout prevents catastrophic backtracking
+                )
+            except TimeoutError:
+                logger.warning(f"Regex timeout parsing spot line: {line[:100]}")
+                return None
             
             if not match:
                 return None
@@ -301,15 +338,20 @@ class DXClusterProvider(BaseSpotProvider):
             # Try to extract mode from the rest of the line
             mode = None
             comment = rest
-            
+
             # First, try to find a mode pattern in the comment
+            # Use regex library with timeout for safety
             for pattern in MODE_PATTERNS:
-                mode_match = re.search(pattern, rest, re.IGNORECASE)
-                if mode_match:
-                    mode = mode_match.group(1).upper()
-                    # Remove mode from comment
-                    comment = re.sub(pattern, '', rest, flags=re.IGNORECASE).strip()
-                    break
+                try:
+                    mode_match = regex.search(pattern, rest, flags=regex.IGNORECASE, timeout=0.5)
+                    if mode_match:
+                        mode = mode_match.group(1).upper()
+                        # Remove mode from comment
+                        comment = regex.sub(pattern, '', rest, flags=regex.IGNORECASE, timeout=0.5).strip()
+                        break
+                except TimeoutError:
+                    logger.warning(f"Regex timeout matching mode pattern: {pattern}")
+                    continue
             
             # If no mode found, check if first word is a common mode
             if not mode:
@@ -373,15 +415,25 @@ class DXClusterProvider(BaseSpotProvider):
             # Build additional data
             additional_data = {}
             if comment:
-                # Remove any timestamp patterns from comment (e.g., "0621Z", "0620Z")
-                # These can appear embedded in comments, not just at the end
-                comment = re.sub(r'\b\d{4}Z\b', '', comment).strip()
-                # Remove control characters (null bytes, carriage returns, etc.)
-                comment = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', comment)
-                # Clean up extra spaces
-                comment = re.sub(r'\s+', ' ', comment).strip()
-                if comment:  # Only add if comment has content after cleaning
-                    additional_data['comment'] = comment
+                try:
+                    # Remove any timestamp patterns from comment (e.g., "0621Z", "0620Z")
+                    # These can appear embedded in comments, not just at the end
+                    comment = regex.sub(r'\b\d{4}Z\b', '', comment, timeout=0.5).strip()
+                    # Remove control characters (null bytes, carriage returns, etc.)
+                    comment = regex.sub(r'[\x00-\x1f\x7f-\x9f]', '', comment, timeout=0.5)
+                    # Clean up extra spaces
+                    comment = regex.sub(r'\s+', ' ', comment, timeout=0.5).strip()
+
+                    # Truncate long comments to prevent memory issues (max 200 chars)
+                    if len(comment) > 200:
+                        comment = comment[:200] + '...'
+                        logger.debug(f"Truncated long comment to 200 chars")
+
+                    if comment:  # Only add if comment has content after cleaning
+                        additional_data['comment'] = comment
+                except TimeoutError:
+                    logger.warning(f"Regex timeout cleaning comment, skipping: {comment[:50]}")
+                    # Skip adding comment if regex times out
             
             return Spot(
                 callsign=callsign,

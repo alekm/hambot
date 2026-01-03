@@ -2,7 +2,7 @@
 PSKReporter API provider for digital mode spots.
 """
 import logging
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 from datetime import datetime, timedelta
 from typing import List, Optional
 import aiohttp
@@ -26,10 +26,14 @@ class PSKReporterProvider(BaseSpotProvider):
         ]
     
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session."""
+        """Get or create HTTP session with granular timeouts."""
         if self.session is None or self.session.closed:
             self.session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=30)
+                timeout=aiohttp.ClientTimeout(
+                    total=15,      # Total timeout (reduced from 30)
+                    connect=5,     # Connection timeout
+                    sock_read=10   # Socket read timeout
+                )
             )
         return self.session
     

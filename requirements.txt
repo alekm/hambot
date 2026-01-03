@@ -6,3 +6,6 @@ aiohttp>=3.8
 aiofiles
 psutil>=5.9.0
 asyncpg>=0.29.0
+defusedxml>=0.7.1
+cryptography>=41.0.0
+regex>=2023.12.25

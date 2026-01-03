@@ -38,7 +38,13 @@ class AsyncCallookLookup:
         lr = olresult.LookupResult()
         req = f'https://callook.info/{call}/json'
         try:
-            async with aiohttp.ClientSession() as session:
+            # Add granular timeouts to prevent hangs
+            timeout = aiohttp.ClientTimeout(
+                total=15,      # Total timeout
+                connect=5,     # Connection timeout
+                sock_read=10   # Socket read timeout
+            )
+            async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(req) as resp:
                     if resp.status != 200:
                         raise olerror.LookupResultError(f'Callook: HTTP {resp.status}')
