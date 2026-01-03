@@ -2,6 +2,7 @@
 PSKReporter API provider for digital mode spots.
 """
 import logging
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import List, Optional
 import aiohttp
@@ -88,19 +89,23 @@ class PSKReporterProvider(BaseSpotProvider):
                     logger.error(f"PSKReporter API returned status {resp.status}")
                     return spots
                 
-                data = await resp.json()
+                # PSKReporter returns XML, not JSON
+                xml_text = await resp.text()
                 
-                # PSKReporter returns data in a specific format
-                # The structure may vary, so we need to handle it carefully
-                if 'r' in data:  # 'r' typically contains receiver reports
-                    for report in data['r']:
+                try:
+                    root = ET.fromstring(xml_text)
+                    # Find all receptionReport elements
+                    for report_elem in root.findall('.//receptionReport'):
                         try:
-                            spot = self._parse_report(report, data.get('s', []))
+                            spot = self._parse_xml_report(report_elem)
                             if spot and spot.timestamp >= since:
                                 spots.append(spot)
                         except Exception as e:
                             logger.warning(f"Failed to parse PSKReporter report: {e}")
                             continue
+                except ET.ParseError as e:
+                    logger.error(f"Failed to parse PSKReporter XML: {e}")
+                    return spots
                 
         except aiohttp.ClientError as e:
             logger.error(f"PSKReporter API request failed: {e}")
@@ -110,54 +115,58 @@ class PSKReporterProvider(BaseSpotProvider):
         logger.info(f"Fetched {len(spots)} spots from PSKReporter")
         return spots
     
-    def _parse_report(self, report: dict, senders: List[dict]) -> Optional[Spot]:
+    def _parse_xml_report(self, report_elem: ET.Element) -> Optional[Spot]:
         """
-        Parse a PSKReporter report into a Spot object.
+        Parse a PSKReporter XML receptionReport element into a Spot object.
         
         Args:
-            report: Receiver report dictionary
-            senders: List of sender information dictionaries
+            report_elem: XML Element for a receptionReport
             
         Returns:
             Spot object or None if parsing fails
         """
         try:
-            # PSKReporter report structure:
-            # - 'rCallsign': receiver callsign
-            # - 'sCallsign': sender callsign (index into senders array)
-            # - 'mode': mode name
-            # - 'frequency': frequency in Hz
-            # - 'time': timestamp (Unix timestamp)
+            # PSKReporter XML structure:
+            # <receptionReport 
+            #   senderCallsign="N9SOR"
+            #   receiverCallsign="KC8PYO"
+            #   frequency="3574351"
+            #   mode="FT8"
+            #   flowStartSeconds="1767399576"
+            #   ... />
             
-            sender_idx = report.get('sCallsign')
-            if sender_idx is not None and 0 <= sender_idx < len(senders):
-                callsign = senders[sender_idx].get('callsign', '')
-            else:
-                callsign = report.get('sCallsign', '')  # Sometimes direct
-            
+            callsign = report_elem.get('senderCallsign', '').strip()
             if not callsign:
                 return None
             
-            mode = report.get('mode', '').upper()
+            mode = report_elem.get('mode', '').upper().strip()
             if not mode:
                 return None
             
-            frequency = report.get('frequency')
-            if frequency:
-                frequency = float(frequency)
+            # Frequency in Hz
+            frequency_str = report_elem.get('frequency', '')
+            frequency = None
+            if frequency_str:
+                try:
+                    frequency = float(frequency_str)
+                except ValueError:
+                    pass
             
-            # Timestamp - PSKReporter uses Unix timestamp
-            time_val = report.get('time')
-            if time_val:
-                timestamp = datetime.utcfromtimestamp(time_val)
+            # Timestamp - flowStartSeconds is Unix timestamp
+            flow_start = report_elem.get('flowStartSeconds', '')
+            if flow_start:
+                try:
+                    timestamp = datetime.utcfromtimestamp(int(flow_start))
+                except (ValueError, OSError):
+                    timestamp = datetime.utcnow()
             else:
                 timestamp = datetime.utcnow()
             
+            # Get spotter (receiver)
+            spotter = report_elem.get('receiverCallsign', '').strip()
+            
             # Create unique spot ID
             spot_id = f"{callsign}_{mode}_{frequency}_{int(timestamp.timestamp())}"
-            
-            # Get spotter (receiver)
-            spotter = report.get('rCallsign', '')
             
             return Spot(
                 callsign=callsign.upper(),
@@ -170,5 +179,5 @@ class PSKReporterProvider(BaseSpotProvider):
             )
             
         except Exception as e:
-            logger.warning(f"Error parsing PSKReporter report: {e}")
+            logger.warning(f"Error parsing PSKReporter XML report: {e}")
             return None
