@@ -71,10 +71,12 @@ class SpotMonitorCog(commands.Cog):
                 connected = await provider.test_connection()
                 if connected:
                     logger.info(f"{source} provider connection test passed")
-                    # For DX Cluster, ensure connection is maintained
-                    if source == 'dxcluster' and hasattr(provider, 'connect'):
-                        # Connection is already established in test_connection
-                        logger.info(f"{source} provider connection established and maintained")
+                    # For DX Cluster, verify background reading task is running
+                    if source == 'dxcluster' and hasattr(provider, 'read_task'):
+                        if provider.read_task and not provider.read_task.done():
+                            logger.info(f"{source} background reading task is running")
+                        else:
+                            logger.warning(f"{source} background reading task not running - connection may be inactive")
                 else:
                     logger.warning(f"{source} provider connection test failed")
             except Exception as e:
@@ -130,6 +132,15 @@ class SpotMonitorCog(commands.Cog):
     async def _process_provider(self, source: str, provider: BaseSpotProvider):
         """Process spots from a provider and send alerts."""
         logger.info(f"Checking {source} for new spots...")
+        
+        # For DX Cluster, verify connection is still active
+        if source == 'dxcluster' and hasattr(provider, 'connected'):
+            if not provider.connected:
+                logger.warning(f"{source} connection lost - attempting to reconnect...")
+                try:
+                    await provider.test_connection()
+                except Exception as e:
+                    logger.error(f"Failed to reconnect {source}: {e}")
         
         # Get last check time (or default to 10 minutes ago)
         since = provider.last_check

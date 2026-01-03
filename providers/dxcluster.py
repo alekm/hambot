@@ -215,8 +215,13 @@ class DXClusterProvider(BaseSpotProvider):
                     if spot:
                         async with self._lock:
                             self.spot_buffer.append(spot)
-                            # Keep buffer size manageable
-                            if len(self.spot_buffer) > 1000:
+                            # Clean up old spots (older than 20 minutes) to prevent buffer bloat
+                            # Keep at least 2-3 monitoring cycles worth of spots
+                            cutoff_time = datetime.utcnow() - timedelta(minutes=20)
+                            while self.spot_buffer and self.spot_buffer[0].timestamp < cutoff_time:
+                                self.spot_buffer.popleft()
+                            # Also enforce max size as safety limit
+                            while len(self.spot_buffer) > 1000:
                                 self.spot_buffer.popleft()
                 
             except asyncio.TimeoutError:
