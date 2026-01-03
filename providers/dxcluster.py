@@ -373,7 +373,13 @@ class DXClusterProvider(BaseSpotProvider):
             # Build additional data
             additional_data = {}
             if comment:
-                additional_data['comment'] = comment
+                # Remove any timestamp patterns from comment (e.g., "0621Z", "0620Z")
+                # These can appear embedded in comments, not just at the end
+                comment = re.sub(r'\b\d{4}Z\b', '', comment).strip()
+                # Clean up extra spaces
+                comment = re.sub(r'\s+', ' ', comment).strip()
+                if comment:  # Only add if comment has content after cleaning
+                    additional_data['comment'] = comment
             
             return Spot(
                 callsign=callsign,
