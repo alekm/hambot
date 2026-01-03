@@ -136,9 +136,16 @@ class SpotMonitorCog(commands.Cog):
             return
         
         # Match spots against alerts
+        # Track which alerts have already been matched this cycle (one alert per alert pattern per cycle)
+        alerts_matched_this_cycle = set()
         matches = []
+        
         for spot in spots:
             for alert in alerts:
+                # Skip if we've already matched this alert in this cycle
+                if alert['id'] in alerts_matched_this_cycle:
+                    continue
+                
                 alert_pattern = alert['callsign_or_prefix'].upper()
                 spot_callsign = spot.callsign.upper()
                 
@@ -167,6 +174,9 @@ class SpotMonitorCog(commands.Cog):
                             in_cooldown = await check_alert_cooldown(alert['id'], self.cooldown_minutes)
                             if not in_cooldown:
                                 matches.append((spot, alert))
+                                # Mark this alert as matched for this cycle (only one alert per alert pattern per cycle)
+                                alerts_matched_this_cycle.add(alert['id'])
+                                logger.debug(f"Alert {alert['id']} matched spot {spot.callsign}, will send one alert for this cycle")
                             else:
                                 logger.debug(f"Alert {alert['id']} in cooldown, skipping spot {spot.spot_id}")
         
