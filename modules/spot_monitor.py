@@ -11,7 +11,8 @@ from providers.base import BaseSpotProvider
 from database.models import (
     get_active_alerts_by_source, record_spot_sent, check_spot_sent, create_user,
     check_alert_cooldown, update_alert_cooldown, get_user_alert_count_recent,
-    record_alert_message, get_messages_to_delete, mark_message_deleted
+    record_alert_message, get_messages_to_delete, mark_message_deleted,
+    purge_old_deleted_messages
 )
 from database.connection import get_pool
 from utils.formatters import format_alert_embed
@@ -165,6 +166,15 @@ class SpotMonitorCog(commands.Cog):
                     error_count += 1
             
             logger.info(f"Message cleanup completed: {deleted_count} deleted, {error_count} errors")
+            
+            # Periodically purge old deleted records (once per day, roughly)
+            # Check if it's been ~24 hours since last purge by checking if we have very old deleted records
+            try:
+                purged_count = await purge_old_deleted_messages(older_than_days=7)
+                if purged_count > 0:
+                    logger.info(f"Purged {purged_count} old deleted message records from database")
+            except Exception as e:
+                logger.warning(f"Error purging old deleted messages: {e}")
                     
         except Exception as e:
             logger.error(f"Error in message cleanup task: {e}", exc_info=True)

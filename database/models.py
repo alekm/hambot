@@ -518,3 +518,25 @@ async def mark_message_deleted(message_id: int, channel_id: int) -> None:
             SET deleted = TRUE
             WHERE message_id = $1 AND channel_id = $2
         """, message_id, channel_id)
+
+
+async def purge_old_deleted_messages(older_than_days: int = 7) -> int:
+    """
+    Delete old deleted message records from the database to prevent bloat.
+    
+    Args:
+        older_than_days: Delete records that were deleted more than this many days ago (default: 7)
+        
+    Returns:
+        Number of records deleted
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        cutoff_time = datetime.utcnow() - timedelta(days=older_than_days)
+        result = await conn.execute("""
+            DELETE FROM alert_messages
+            WHERE deleted = TRUE AND sent_at < $1
+        """, cutoff_time)
+        
+        # Parse "DELETE N" to get count
+        return int(result.split()[-1]) if result.startswith("DELETE") else 0
