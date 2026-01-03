@@ -66,8 +66,10 @@ class MiscCog(commands.Cog):
                 '\t`/uptime`: Bot uptime\n'
                      '\n**Alert commands**\n'
                      '\t`/addalert [callsign] [modes]`: Add a spot alert (modes optional - leave empty to match all)\n'
-                '\t`/removealert [id]`: Remove an alert\n'
-                '\t`/listalerts`: List your active alerts\n'
+                     '\t`/removealert [id]`: Remove an alert\n'
+                     '\t`/listalerts`: List your active alerts\n'
+                     '\n**DX Spot commands**\n'
+                     '\t`/dxspots [filter]`: Show recent DX spots from DX Cluster\n'
             )
         )
         await ctx.respond(embed=embed, ephemeral=True)
