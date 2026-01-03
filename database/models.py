@@ -95,6 +95,19 @@ async def create_schema():
                     )
                 """)
                 
+                # Create alert_messages table to track sent DM messages for auto-deletion
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS alert_messages (
+                        id SERIAL PRIMARY KEY,
+                        message_id BIGINT NOT NULL,
+                        user_id BIGINT NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+                        channel_id BIGINT NOT NULL,
+                        sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        deleted BOOLEAN NOT NULL DEFAULT FALSE,
+                        UNIQUE(message_id, channel_id)
+                    )
+                """)
+                
                 # Create indexes for better query performance
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_alerts_user_id ON alerts(user_id)
@@ -128,6 +141,12 @@ async def create_schema():
                 """)
                 await conn.execute("""
                     CREATE INDEX IF NOT EXISTS idx_usage_statistics_timestamp ON usage_statistics(timestamp)
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_alert_messages_sent_at ON alert_messages(sent_at) WHERE deleted = FALSE
+                """)
+                await conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_alert_messages_user_id ON alert_messages(user_id) WHERE deleted = FALSE
                 """)
                 
                 logger.info("Database schema created/verified")
@@ -442,4 +461,60 @@ async def record_stats(
             await conn.execute("""
                 INSERT INTO usage_statistics (command_name, execution_count, period, timestamp)
                 VALUES ($1, $2, $3, $4)
-            """, stat.get('commandName'), stat.get('count'), period, ts)
+                    """, stat.get('commandName'), stat.get('count'), period, ts)
+
+
+async def record_alert_message(message_id: int, user_id: int, channel_id: int, sent_at: Optional[datetime] = None) -> None:
+    """
+    Record a sent alert DM message for later deletion.
+    
+    Args:
+        message_id: Discord message ID
+        user_id: Discord user ID
+        channel_id: Discord channel ID (DM channel)
+        sent_at: Optional timestamp (defaults to now)
+    """
+    if sent_at is None:
+        sent_at = datetime.utcnow()
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO alert_messages (message_id, user_id, channel_id, sent_at)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (message_id, channel_id) DO NOTHING
+        """, message_id, user_id, channel_id, sent_at)
+
+
+async def get_messages_to_delete(older_than_hours: int = 1) -> List[dict]:
+    """
+    Get alert messages that are older than specified hours and not yet deleted.
+    
+    Args:
+        older_than_hours: Number of hours (default: 1)
+        
+    Returns:
+        List of dicts with message_id, user_id, channel_id, sent_at
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        cutoff_time = datetime.utcnow() - timedelta(hours=older_than_hours)
+        rows = await conn.fetch("""
+            SELECT message_id, user_id, channel_id, sent_at
+            FROM alert_messages
+            WHERE deleted = FALSE AND sent_at < $1
+            ORDER BY sent_at ASC
+        """, cutoff_time)
+        
+        return [dict(row) for row in rows]
+
+
+async def mark_message_deleted(message_id: int, channel_id: int) -> None:
+    """Mark a message as deleted."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE alert_messages
+            SET deleted = TRUE
+            WHERE message_id = $1 AND channel_id = $2
+        """, message_id, channel_id)

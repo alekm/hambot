@@ -10,7 +10,8 @@ from providers.dxcluster import DXClusterProvider
 from providers.base import BaseSpotProvider
 from database.models import (
     get_active_alerts_by_source, record_spot_sent, check_spot_sent, create_user,
-    check_alert_cooldown, update_alert_cooldown, get_user_alert_count_recent
+    check_alert_cooldown, update_alert_cooldown, get_user_alert_count_recent,
+    record_alert_message, get_messages_to_delete, mark_message_deleted
 )
 from database.connection import get_pool
 from utils.formatters import format_alert_embed
@@ -86,10 +87,16 @@ class SpotMonitorCog(commands.Cog):
         self.monitor_task.change_interval(minutes=self.poll_interval)
         self.monitor_task.start()
         logger.info(f"Spot monitoring task started (interval: {self.poll_interval} minutes)")
+        
+        # Start message cleanup task (runs every 10 minutes to check for messages to delete)
+        self.message_cleanup_task.change_interval(minutes=10)
+        self.message_cleanup_task.start()
+        logger.info("Message cleanup task started (runs every 10 minutes)")
     
     async def cog_unload(self):
         """Called when the cog is unloaded."""
         self.monitor_task.cancel()
+        self.message_cleanup_task.cancel()
         
         # Close provider sessions
         for provider in self.providers.values():
@@ -98,6 +105,69 @@ class SpotMonitorCog(commands.Cog):
                     await provider.close()
                 except Exception as e:
                     logger.error(f"Error closing provider: {e}")
+    
+    @tasks.loop(minutes=10)
+    async def message_cleanup_task(self):
+        """Background task to delete alert DMs older than 1 hour."""
+        try:
+            await self.bot.wait_until_ready()
+            
+            if not self._check_database():
+                return
+            
+            # Get messages older than 1 hour
+            messages = await get_messages_to_delete(older_than_hours=1)
+            
+            if not messages:
+                logger.debug("No messages to delete")
+                return
+            
+            logger.info(f"Deleting {len(messages)} alert message(s) older than 1 hour")
+            
+            deleted_count = 0
+            error_count = 0
+            
+            for msg_data in messages:
+                try:
+                    # Get the channel (DM channel)
+                    channel = await self.bot.fetch_channel(msg_data['channel_id'])
+                    if channel is None:
+                        # Channel might not exist (user blocked bot, etc.)
+                        await mark_message_deleted(msg_data['message_id'], msg_data['channel_id'])
+                        continue
+                    
+                    # Get the message
+                    try:
+                        message = await channel.fetch_message(msg_data['message_id'])
+                        await message.delete()
+                        await mark_message_deleted(msg_data['message_id'], msg_data['channel_id'])
+                        deleted_count += 1
+                        logger.debug(f"Deleted message {msg_data['message_id']} for user {msg_data['user_id']}")
+                    except discord.NotFound:
+                        # Message already deleted by user
+                        await mark_message_deleted(msg_data['message_id'], msg_data['channel_id'])
+                        deleted_count += 1
+                    except discord.Forbidden:
+                        # Bot doesn't have permission (shouldn't happen for own messages, but handle gracefully)
+                        logger.warning(f"Cannot delete message {msg_data['message_id']} - permission denied")
+                        await mark_message_deleted(msg_data['message_id'], msg_data['channel_id'])
+                        error_count += 1
+                    except Exception as e:
+                        logger.error(f"Error deleting message {msg_data['message_id']}: {e}")
+                        error_count += 1
+                        
+                except discord.NotFound:
+                    # Channel doesn't exist (user blocked bot, etc.)
+                    await mark_message_deleted(msg_data['message_id'], msg_data['channel_id'])
+                    deleted_count += 1
+                except Exception as e:
+                    logger.error(f"Error processing message deletion for {msg_data['message_id']}: {e}")
+                    error_count += 1
+            
+            logger.info(f"Message cleanup completed: {deleted_count} deleted, {error_count} errors")
+                    
+        except Exception as e:
+            logger.error(f"Error in message cleanup task: {e}", exc_info=True)
     
     @tasks.loop()
     async def monitor_task(self):
@@ -246,8 +316,16 @@ class SpotMonitorCog(commands.Cog):
             
             # Send DM with rate limit handling
             try:
-                await user.send(embed=embed)
+                message = await user.send(embed=embed)
                 logger.info(f"Alert sent to {user.id} for {spot.callsign} on {spot.mode}")
+                
+                # Record message for auto-deletion after 1 hour
+                await record_alert_message(
+                    message_id=message.id,
+                    user_id=user.id,
+                    channel_id=message.channel.id,
+                    sent_at=datetime.utcnow()
+                )
             except discord.Forbidden:
                 logger.warning(f"Cannot send DM to user {user.id} (blocked or DMs disabled)")
                 return
