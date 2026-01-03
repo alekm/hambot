@@ -170,7 +170,9 @@ def load_config_from_env():
         logger.info("DATABASE_URL not set - alert features will be disabled")
     
     # Alert configuration (optional)
-    config['poll_interval'] = int(os.getenv('PSKREPORTER_POLL_INTERVAL', '2'))
+    # PSKReporter recommends querying no more than once every 5 minutes
+    # Default to 5 minutes to avoid rate limiting (503 errors)
+    config['poll_interval'] = int(os.getenv('PSKREPORTER_POLL_INTERVAL', '5'))
     config['expiration_days'] = int(os.getenv('ALERT_EXPIRATION_DAYS', '30'))
     config['alert_cooldown_minutes'] = int(os.getenv('ALERT_COOLDOWN_MINUTES', '5'))
     config['max_alerts_per_user_per_hour'] = int(os.getenv('MAX_ALERTS_PER_USER_PER_HOUR', '20'))

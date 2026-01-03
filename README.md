@@ -33,7 +33,7 @@ You'll need:
 
 **Optional Environment Variables (for Alert Features):**
 - `DATABASE_URL`: PostgreSQL connection string (required for alerts)
-- `PSKREPORTER_POLL_INTERVAL`: Minutes between spot checks (default: 2)
+- `PSKREPORTER_POLL_INTERVAL`: Minutes between spot checks (default: 5, minimum recommended: 5)
 - `ALERT_EXPIRATION_DAYS`: Days before alerts auto-expire (default: 30)
 - `DEFAULT_MODES_PSKREPORTER`: Comma-separated modes to monitor (default: FT8,FT4,PSK31,CW,RTTY)
 - `ENABLED_DATA_SOURCES`: Comma-separated sources (default: pskreporter)
