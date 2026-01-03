@@ -61,16 +61,18 @@ def validate_callsign(callsign: str) -> bool:
 def validate_modes(modes: List[str], data_source: str) -> tuple[bool, str]:
     """
     Validate mode names for a specific data source.
+    Empty list is allowed (matches all modes).
     
     Args:
-        modes: List of mode names to validate
+        modes: List of mode names to validate (empty list = match all modes)
         data_source: Data source name (e.g., 'pskreporter')
         
     Returns:
         Tuple of (is_valid, error_message)
     """
+    # Empty modes list is valid (matches all modes)
     if not modes:
-        return False, "At least one mode must be specified"
+        return True, ""
     
     modes_upper = [m.upper().strip() for m in modes if m.strip()]
     

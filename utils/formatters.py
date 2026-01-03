@@ -12,6 +12,7 @@ def format_alert_embed(
     frequency: Optional[float],
     timestamp: datetime,
     spotter: Optional[str] = None,
+    comment: Optional[str] = None,
     embed_color: int = 0x31a896
 ) -> discord.Embed:
     """
@@ -49,6 +50,11 @@ def format_alert_embed(
     
     if spotter:
         embed.add_field(name="Spotter", value=spotter, inline=True)
+    
+    if comment:
+        # Truncate long comments to avoid embed limits
+        comment_display = comment[:200] + "..." if len(comment) > 200 else comment
+        embed.add_field(name="Comment", value=comment_display, inline=False)
     
     embed.set_footer(text="Hambot DX Alert")
     
@@ -94,7 +100,8 @@ def format_alerts_list(alerts: List[dict], embed_color: int = 0x31a896) -> disco
         
         for alert in source_alerts:
             callsign = alert['callsign_or_prefix']
-            modes = ', '.join(alert.get('modes', []))
+            modes_list = alert.get('modes', [])
+            modes = ', '.join(modes_list) if modes_list else "All modes"
             expires_at = alert['expires_at']
             days_left = (expires_at - datetime.utcnow()).days
             

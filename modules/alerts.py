@@ -38,7 +38,7 @@ class AlertsCog(commands.Cog):
         self,
         ctx,
         callsign_or_prefix: discord.Option(str, "Callsign or prefix to monitor", required=True),
-        modes: discord.Option(str, "Comma-separated list of modes (e.g., FT8,FT4,CW). Default: FT8,FT4,PSK31,CW,RTTY", required=False),
+        modes: discord.Option(str, "Comma-separated list of modes (e.g., FT8,FT4,CW). Leave empty to match all modes", required=False),
         data_source: discord.Option(str, "Data source (default: all)", required=False, choices=["all", "pskreporter", "dxcluster"])
     ):
         """Add a new alert for a callsign or prefix."""
@@ -63,11 +63,12 @@ class AlertsCog(commands.Cog):
         # Determine data source (default to "all" to monitor all sources)
         source = (data_source or "all").lower()
         
-        # Parse and validate modes
+        # Parse and validate modes (empty = match all modes)
         if modes:
             mode_list = parse_modes_string(modes)
         else:
-            mode_list = get_default_modes(source) or self.default_modes_pskreporter
+            # Empty modes list = match all modes
+            mode_list = []
         
         is_valid, error_msg = validate_modes(mode_list, source)
         if not is_valid:
@@ -99,7 +100,7 @@ class AlertsCog(commands.Cog):
                 timestamp=datetime.utcnow()
             )
             embed.add_field(name="Callsign/Prefix", value=callsign_or_prefix.upper(), inline=True)
-            embed.add_field(name="Modes", value=", ".join(mode_list), inline=True)
+            embed.add_field(name="Modes", value=", ".join(mode_list) if mode_list else "All modes", inline=True)
             embed.add_field(name="Data Source", value=source.upper(), inline=True)
             embed.add_field(name="Expires", value=f"In {days_remaining} days", inline=True)
             embed.add_field(name="Alert ID", value=str(alert_id), inline=True)

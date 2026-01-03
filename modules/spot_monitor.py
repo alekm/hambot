@@ -260,8 +260,12 @@ class SpotMonitorCog(commands.Cog):
                     is_match = True
                 
                 if is_match:
-                    # Check if mode matches
-                    if spot.mode.upper() in [m.upper() for m in alert['modes']]:
+                    # Check if mode matches (if modes list is empty, match all modes)
+                    mode_match = True
+                    if alert['modes'] and len(alert['modes']) > 0:
+                        mode_match = spot.mode.upper() in [m.upper() for m in alert['modes']]
+                    
+                    if mode_match:
                         # Check if we've already sent this spot (checks across all sources)
                         already_sent = await check_spot_sent(
                             spot.spot_id,
@@ -305,12 +309,17 @@ class SpotMonitorCog(commands.Cog):
                 return
             
             # Create embed
+            comment = None
+            if spot.additional_data and 'comment' in spot.additional_data:
+                comment = spot.additional_data['comment']
+            
             embed = format_alert_embed(
                 callsign=spot.callsign,
                 mode=spot.mode,
                 frequency=spot.frequency,
                 timestamp=spot.timestamp,
                 spotter=spot.spotter,
+                comment=comment,
                 embed_color=self.embed_color
             )
             
