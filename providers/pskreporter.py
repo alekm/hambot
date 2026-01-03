@@ -86,7 +86,10 @@ class PSKReporterProvider(BaseSpotProvider):
         try:
             async with session.get(PSKREPORTER_API_URL, params=params) as resp:
                 if resp.status != 200:
-                    logger.error(f"PSKReporter API returned status {resp.status}")
+                    if resp.status == 503:
+                        logger.warning(f"PSKReporter API temporarily unavailable (503) - will retry on next cycle")
+                    else:
+                        logger.error(f"PSKReporter API returned status {resp.status}")
                     return spots
                 
                 # PSKReporter returns XML, not JSON
