@@ -376,6 +376,8 @@ class DXClusterProvider(BaseSpotProvider):
                 # Remove any timestamp patterns from comment (e.g., "0621Z", "0620Z")
                 # These can appear embedded in comments, not just at the end
                 comment = re.sub(r'\b\d{4}Z\b', '', comment).strip()
+                # Remove control characters (null bytes, carriage returns, etc.)
+                comment = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', comment)
                 # Clean up extra spaces
                 comment = re.sub(r'\s+', ' ', comment).strip()
                 if comment:  # Only add if comment has content after cleaning
