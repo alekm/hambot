@@ -83,9 +83,23 @@ class DXSpotsCog(commands.Cog):
         )
     ):
         """Display recent DX Cluster spots."""
+        # Try to get provider if not already set
+        if not self.dx_provider:
+            spot_monitor = self.bot.get_cog('SpotMonitorCog')
+            if spot_monitor and 'dxcluster' in spot_monitor.providers:
+                self.dx_provider = spot_monitor.providers['dxcluster']
+        
         if not self.dx_provider:
             await ctx.respond(
-                "DX Cluster is not enabled or not connected. Check your configuration.",
+                "DX Cluster is not enabled. Please add 'dxcluster' to ENABLED_DATA_SOURCES in your configuration.",
+                ephemeral=True
+            )
+            return
+        
+        # Check if connected
+        if not self.dx_provider.connected:
+            await ctx.respond(
+                "DX Cluster is not connected. The connection may still be establishing. Please try again in a moment.",
                 ephemeral=True
             )
             return
@@ -94,10 +108,11 @@ class DXSpotsCog(commands.Cog):
         
         try:
             # Get recent spots from provider
+            # Use the synchronous get_recent_spots method which reads from the buffer
             spots = self.dx_provider.get_recent_spots(count=100)
             
             if not spots:
-                await ctx.respond("No DX spots available yet. The connection may still be establishing.", ephemeral=True)
+                await ctx.respond("No DX spots available yet. The connection may still be establishing or no spots have been received.", ephemeral=True)
                 return
             
             # Apply filters
