@@ -145,7 +145,9 @@ class DXSpotsCog(commands.Cog):
                     
                     is_band = False
                     for band_name, (low_khz, high_khz) in band_freqs.items():
-                        if filter_upper in [band_name, band_name.replace('M', 'm')]:
+                        # Match variations: "20M", "20m", "20", etc.
+                        band_num = band_name.replace('M', '')
+                        if filter_upper in [band_name, band_name.replace('M', 'm'), band_num]:
                             # Filter by frequency range
                             filtered_spots = [
                                 s for s in spots
