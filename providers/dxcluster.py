@@ -13,14 +13,12 @@ logger = logging.getLogger(__name__)
 
 # DX Cluster spot format: DX de CALLSIGN: FREQ CALLSIGN [MODE] [COMMENT] [TIMESTAMP]
 # Examples:
+#   DX de HB9FHV: 7157.0 W2WP LSB 0512Z
+#   DX de SQ9NIS: 3718.0 CN2NIS 0513Z
 #   DX de W1ABC: 14023.5 N4OG FT8
 #   DX de VU3YBH: 28075.1 AT4WWA World Wide Award ft8 0445Z
-#   DX de N1FXP: 1840.0 AB8DD EL86XQ<>EN80 0446Z
 # Note: Mode may be anywhere in the comment, or right after callsign
-DX_SPOT_PATTERN = re.compile(
-    r'DX de\s+([A-Z0-9/]+[A-Z0-9]):\s+(\d+\.?\d*)\s+([A-Z0-9/]+[A-Z0-9])\s+(.+?)(?:\s+(\d{4}Z))?\s*$',
-    re.IGNORECASE
-)
+# Timestamp format: 0512Z (4 digits + Z)
 
 # Common mode patterns to extract from comment
 MODE_PATTERNS = [
@@ -271,9 +269,27 @@ class DXClusterProvider(BaseSpotProvider):
         
         Format: DX de CALLSIGN: FREQ CALLSIGN [MODE] [COMMENT] [TIMESTAMP]
         Mode may be anywhere in the comment or right after callsign.
+        Examples:
+          DX de HB9FHV: 7157.0 W2WP LSB 0512Z
+          DX de SQ9NIS: 3718.0 CN2NIS 0513Z
+          DX de W1ABC: 14023.5 N4OG FT8
+          DX de VU3YBH: 28075.1 AT4WWA World Wide Award ft8 0445Z
         """
         try:
-            match = DX_SPOT_PATTERN.match(line)
+            # First, extract timestamp from the end if present (format: 0512Z)
+            timestamp_match = re.search(r'(\d{4}Z)\s*$', line)
+            timestamp_str = timestamp_match.group(1) if timestamp_match else None
+            
+            # Remove timestamp from line for parsing
+            line_without_timestamp = re.sub(r'\s+\d{4}Z\s*$', '', line)
+            
+            # Now parse the rest of the line
+            match = re.match(
+                r'DX de\s+([A-Z0-9/]+[A-Z0-9]):\s+(\d+\.?\d*)\s+([A-Z0-9/]+[A-Z0-9])(?:\s+(.+))?',
+                line_without_timestamp,
+                re.IGNORECASE
+            )
+            
             if not match:
                 return None
             
@@ -281,7 +297,6 @@ class DXClusterProvider(BaseSpotProvider):
             frequency_str = match.group(2).strip()
             callsign = match.group(3).strip().upper()
             rest = match.group(4).strip() if match.group(4) else ""
-            timestamp_str = match.group(5).strip() if match.group(5) else None
             
             # Try to extract mode from the rest of the line
             mode = None
