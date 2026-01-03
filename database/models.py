@@ -157,7 +157,7 @@ async def create_alert(
     user_id: int,
     callsign_or_prefix: str,
     modes: List[str],
-    data_source: str = "pskreporter",
+    data_source: str = "all",
     expiration_days: int = 30
 ) -> int:
     """
@@ -228,14 +228,16 @@ async def deactivate_alerts_by_callsign(user_id: int, callsign_or_prefix: str) -
 
 
 async def get_active_alerts_by_source(data_source: str) -> List[dict]:
-    """Get all active alerts for a specific data source."""
+    """Get all active alerts for a specific data source (including 'all' alerts)."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT id, user_id, callsign_or_prefix, is_prefix, modes, data_source,
                    created_at, expires_at
             FROM alerts
-            WHERE active = TRUE AND data_source = $1 AND expires_at > NOW()
+            WHERE active = TRUE 
+              AND (data_source = $1 OR data_source = 'all')
+              AND expires_at > NOW()
             ORDER BY created_at
         """, data_source)
         
@@ -261,15 +263,35 @@ async def record_spot_sent(
         """, alert_id, spot_id, spot_source, callsign, mode, frequency, timestamp)
 
 
-async def check_spot_sent(spot_id: str, spot_source: str, alert_id: int) -> bool:
-    """Check if a spot has already been sent for a specific alert."""
+async def check_spot_sent(spot_id: str, spot_source: str, alert_id: int, callsign: str, mode: str, timestamp: datetime) -> bool:
+    """
+    Check if a spot has already been sent for a specific alert.
+    Checks both by spot_id+source AND by callsign+mode+timestamp (within 5 minutes)
+    to prevent duplicate notifications across different data sources.
+    """
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Check by exact spot_id and source
         row = await conn.fetchrow("""
             SELECT 1 FROM spot_history
             WHERE spot_id = $1 AND spot_source = $2 AND alert_id = $3
             LIMIT 1
         """, spot_id, spot_source, alert_id)
+        
+        if row:
+            return True
+        
+        # Check if we've already sent an alert for this callsign+mode within 5 minutes
+        # (prevents duplicate notifications if same callsign is spotted on multiple sources)
+        time_window = timestamp - timedelta(minutes=5)
+        row = await conn.fetchrow("""
+            SELECT 1 FROM spot_history
+            WHERE alert_id = $1 
+              AND callsign = $2 
+              AND mode = $3 
+              AND timestamp >= $4
+            LIMIT 1
+        """, alert_id, callsign.upper(), mode.upper(), time_window)
         
         return row is not None
 

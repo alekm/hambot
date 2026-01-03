@@ -182,7 +182,7 @@ def load_config_from_env():
     config['default_modes_pskreporter'] = [m.strip().upper() for m in default_modes_str.split(',') if m.strip()]
     
     # Enabled data sources
-    enabled_sources_str = os.getenv('ENABLED_DATA_SOURCES', 'pskreporter')
+    enabled_sources_str = os.getenv('ENABLED_DATA_SOURCES', 'pskreporter,dxcluster')
     config['enabled_data_sources'] = [s.strip().lower() for s in enabled_sources_str.split(',') if s.strip()]
     
     # DX Cluster configuration (optional)

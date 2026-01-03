@@ -39,7 +39,7 @@ class AlertsCog(commands.Cog):
         ctx,
         callsign_or_prefix: discord.Option(str, "Callsign or prefix to monitor", required=True),
         modes: discord.Option(str, "Comma-separated list of modes (e.g., FT8,FT4,CW). Default: FT8,FT4,PSK31,CW,RTTY", required=False),
-        data_source: discord.Option(str, "Data source (default: pskreporter)", required=False, choices=["pskreporter"])
+        data_source: discord.Option(str, "Data source (default: all)", required=False, choices=["all", "pskreporter", "dxcluster"])
     ):
         """Add a new alert for a callsign or prefix."""
         await ctx.defer(ephemeral=True)
@@ -60,8 +60,8 @@ class AlertsCog(commands.Cog):
             )
             return
         
-        # Determine data source
-        source = (data_source or "pskreporter").lower()
+        # Determine data source (default to "all" to monitor all sources)
+        source = (data_source or "all").lower()
         
         # Parse and validate modes
         if modes:

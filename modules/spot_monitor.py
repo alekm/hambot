@@ -181,11 +181,14 @@ class SpotMonitorCog(commands.Cog):
                 if is_match:
                     # Check if mode matches
                     if spot.mode.upper() in [m.upper() for m in alert['modes']]:
-                        # Check if we've already sent this spot
+                        # Check if we've already sent this spot (checks across all sources)
                         already_sent = await check_spot_sent(
                             spot.spot_id,
                             spot.source,
-                            alert['id']
+                            alert['id'],
+                            spot.callsign,
+                            spot.mode,
+                            spot.timestamp
                         )
                         if not already_sent:
                             # Check alert cooldown (throttling per alert)
