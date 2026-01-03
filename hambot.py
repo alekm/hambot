@@ -100,6 +100,12 @@ async def on_ready():
                     spot_monitor_cog.monitor_task.change_interval(minutes=spot_monitor_cog.poll_interval)
                     spot_monitor_cog.monitor_task.start()
                     logger.info(f"Spot monitoring task started (interval: {spot_monitor_cog.poll_interval} minutes)")
+                    
+                    # Start message cleanup task (ensures it runs after redeploys)
+                    if not spot_monitor_cog.message_cleanup_task.is_running():
+                        spot_monitor_cog.message_cleanup_task.change_interval(minutes=10)
+                        spot_monitor_cog.message_cleanup_task.start()
+                        logger.info("Message cleanup task started (runs every 10 minutes)")
             except Exception as e:
                 logger.error(f"Failed to start spot monitoring task: {e}", exc_info=True)
 
