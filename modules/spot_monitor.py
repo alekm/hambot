@@ -85,6 +85,8 @@ class SpotMonitorCog(commands.Cog):
         try:
             await self.bot.wait_until_ready()
             
+            logger.info("Starting spot monitoring cycle")
+            
             # Check if database is available
             if not self._check_database():
                 logger.warning("Database not available - skipping spot monitoring cycle")
@@ -96,6 +98,8 @@ class SpotMonitorCog(commands.Cog):
                     await self._process_provider(source, provider)
                 except Exception as e:
                     logger.error(f"Error processing {source} provider: {e}", exc_info=True)
+            
+            logger.info("Spot monitoring cycle completed")
                     
         except Exception as e:
             logger.error(f"Error in monitor task: {e}", exc_info=True)
@@ -107,6 +111,8 @@ class SpotMonitorCog(commands.Cog):
     
     async def _process_provider(self, source: str, provider: BaseSpotProvider):
         """Process spots from a provider and send alerts."""
+        logger.info(f"Checking {source} for new spots...")
+        
         # Get last check time (or default to 10 minutes ago)
         since = provider.last_check
         if since is None:
@@ -117,7 +123,7 @@ class SpotMonitorCog(commands.Cog):
         provider.last_check = datetime.utcnow()
         
         if not spots:
-            logger.debug(f"No new spots from {source}")
+            logger.info(f"No new spots from {source} (checked since {since.strftime('%Y-%m-%d %H:%M:%S UTC')})")
             return
         
         logger.info(f"Processing {len(spots)} spots from {source}")
