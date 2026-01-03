@@ -3,6 +3,7 @@ PSKReporter API provider for digital mode spots.
 """
 import logging
 from defusedxml import ElementTree as ET
+from xml.etree.ElementTree import Element
 from datetime import datetime, timedelta
 from typing import List, Optional
 import aiohttp
@@ -122,7 +123,7 @@ class PSKReporterProvider(BaseSpotProvider):
         logger.info(f"Fetched {len(spots)} spots from PSKReporter")
         return spots
     
-    def _parse_xml_report(self, report_elem: ET.Element) -> Optional[Spot]:
+    def _parse_xml_report(self, report_elem: Element) -> Optional[Spot]:
         """
         Parse a PSKReporter XML receptionReport element into a Spot object.
         
