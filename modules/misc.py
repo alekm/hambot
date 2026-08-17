@@ -86,7 +86,7 @@ class MiscCog(commands.Cog):
             description=(
                 f"I'm Hambot, a helper for ham radio operators on Discord.\n\n"                
 
-                f'\tAdd me to your server! https://discordapp.com/oauth2/authorize?client_id={self.bot.config["clientID"]}&scope=bot&permissions=2214972480\n\n'
+                f'\tAdd me to your server! https://discord.com/oauth2/authorize?client_id={self.bot.config["clientID"]}\n\n'
 
                 f"Owner: <@{self.bot.owner_id}>\n"
                 f"[Source Code](https://github.com/alekm/hambot)\n"
