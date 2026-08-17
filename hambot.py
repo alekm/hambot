@@ -18,12 +18,11 @@ logger = logging.getLogger("hambot")
 # =======================
 # Discord Intents
 # =======================
+# No privileged intents: nothing here reads message content or member lists.
 intents = discord.Intents(
     guilds=True,
-    members=True,
     messages=True,
     reactions=True,
-    message_content=True  # Set true if your bot reads messages' content
 )
 
 # =======================
