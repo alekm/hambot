@@ -14,6 +14,10 @@ COPY . .
 # Make healthcheck script executable
 RUN chmod +x healthcheck.sh
 
+# Excluded from the build context by .dockerignore; the volume mount shadows
+# this in production, but the app writes here directly and does not mkdir.
+RUN mkdir -p /app/config
+
 # Optional: Create a non-root user for extra security
 #RUN useradd -ms /bin/bash hambotuser
 #USER hambotuser

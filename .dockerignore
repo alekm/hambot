@@ -1,0 +1,37 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Runtime state — provided by the volume mount at /app/config
+config/
+
+# Local environment / secrets
+.env
+.env.local
+.env.*.local
+env.example
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Editor and OS cruft
+*.swp
+.DS_Store
+
+# Tooling and docs not needed at runtime
+.claude/
+CLAUDE.md
+SECURITY_AUDIT.md
+README.md
+LICENSE
+compose.yml
+
+# Generated artifacts from image/plot commands
+conditions.gif
+muf.svg
+muf.jpg
